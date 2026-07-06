@@ -1,0 +1,149 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UnidadeMedida {
+  METRO
+  KG
+  UNIDADE
+}
+
+enum StatusPedido {
+  PENDENTE
+  PROCESSANDO
+  PAGO
+  FALHOU
+  CANCELADO
+  ENVIADO
+  ENTREGUE
+}
+
+model Usuario {
+  id        String     @id @default(uuid())
+  email     String     @unique
+  senha     String
+  nome      String
+  ehAdmin   Boolean    @default(false)
+  enderecos Endereco[]
+  pedidos   Pedido[]
+  passwordResetTokens PasswordResetToken[]
+  criadoEm  DateTime   @default(now())
+}
+
+model Endereco {
+  id          String   @id @default(uuid())
+  usuarioId   String
+  usuario     Usuario  @relation(fields: [usuarioId], references: [id])
+  cep         String
+  rua         String
+  numero      String
+  complemento String?
+  bairro      String
+  cidade      String
+  estado      String
+  pedidos     Pedido[]
+}
+
+model ProdutoImagem {
+  id        String   @id @default(uuid())
+  produtoId String
+  produto   Produto  @relation(fields: [produtoId], references: [id])
+  url       String
+  ordem     Int      @default(0)
+  criadoEm  DateTime @default(now())
+}
+
+model Categoria {
+  id       String    @id @default(uuid())
+  nome     String    @unique
+  slug     String    @unique
+  produtos Produto[]
+}
+
+model Produto {
+  id            String           @id @default(uuid())
+  titulo        String
+  descricao     String?
+  precoBase     Decimal          @db.Decimal(10, 2)
+  unidadeMedida UnidadeMedida
+  categoriaId   String
+  categoria     Categoria        @relation(fields: [categoriaId], references: [id])
+  variacoes     ProdutoVariacao[]
+  imagens       ProdutoImagem[]
+  criadoEm      DateTime         @default(now())
+}
+
+model ProdutoVariacao {
+  id        String       @id @default(uuid())
+  produtoId String
+  produto   Produto      @relation(fields: [produtoId], references: [id])
+  cor       String
+  largura   Decimal?     @db.Decimal(5, 2)
+  estoque   Decimal      @db.Decimal(10, 3)
+  sku       String       @unique
+  itens     ItemPedido[]
+}
+
+model Pedido {
+  id         String       @id @default(uuid())
+  usuarioId  String
+  usuario    Usuario      @relation(fields: [usuarioId], references: [id])
+  enderecoId String
+  endereco   Endereco     @relation(fields: [enderecoId], references: [id])
+  status     StatusPedido @default(PENDENTE)
+  metodoPagamento String
+  paymentProvider String?
+  paymentMethodId String?
+  freteMetodo String
+  freteTransportadora String
+  fretePrazoDias Int
+  cepEntrega String
+  ruaEntrega String
+  numeroEntrega String
+  complementoEntrega String?
+  bairroEntrega String
+  cidadeEntrega String
+  estadoEntrega String
+  valorTotal Decimal      @db.Decimal(10, 2)
+  frete      Decimal      @db.Decimal(10, 2)
+  itens      ItemPedido[]
+  criadoEm   DateTime     @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  usuarioId String
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+  tokenHash String   @unique
+  expiraEm  DateTime
+  usadoEm   DateTime?
+  criadoEm  DateTime @default(now())
+}
+
+model AuditoriaEvento {
+  id          String   @id @default(uuid())
+  atorId      String?
+  atorEmail   String?
+  acao        String
+  entidade    String
+  entidadeId  String?
+  dados       Json?
+  ip          String?
+  userAgent   String?
+  criadoEm    DateTime @default(now())
+}
+
+model ItemPedido {
+  id                String          @id @default(uuid())
+  pedidoId          String
+  pedido            Pedido          @relation(fields: [pedidoId], references: [id])
+  produtoVariacaoId String
+  produtoVariacao   ProdutoVariacao @relation(fields: [produtoVariacaoId], references: [id])
+  quantidade        Decimal         @db.Decimal(10, 3)
+  precoUnitario     Decimal         @db.Decimal(10, 2)
+}
