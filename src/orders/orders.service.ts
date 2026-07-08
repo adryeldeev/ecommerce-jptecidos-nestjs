@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, StatusPedido } from '@prisma/client';
+import { Prisma, StatusPedido, UnidadeMedida } from '@prisma/client';
 import Decimal from 'decimal.js';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -74,54 +74,72 @@ export class OrdersService {
           throw new BadRequestException('Quantidade deve ser maior que zero.');
         }
 
-        // Lock pessimista por linha para evitar race condition no estoque.
-        const [variacao] = await tx.$queryRaw<Array<{ id: string; estoque: Prisma.Decimal }>>`
-          SELECT id, estoque
-          FROM "ProdutoVariacao"
-          WHERE id = ${item.produtoVariacaoId}
+        // Lock pessimista para estoque da variacao e do produto.
+        const [snapshot] = await tx.$queryRaw<
+          Array<{
+            variacaoId: string;
+            estoqueVariacao: Prisma.Decimal;
+            produtoId: string;
+            estoqueProduto: Prisma.Decimal;
+            unidadeMedida: UnidadeMedida;
+            precoBase: Prisma.Decimal;
+          }>
+        >`
+          SELECT
+            v.id AS "variacaoId",
+            v.estoque AS "estoqueVariacao",
+            p.id AS "produtoId",
+            p."quantidadeEstoque" AS "estoqueProduto",
+            p."unidadeMedida" AS "unidadeMedida",
+            p."precoBase" AS "precoBase"
+          FROM "ProdutoVariacao" v
+          INNER JOIN "Produto" p ON p.id = v."produtoId"
+          WHERE v.id = ${item.produtoVariacaoId}
           FOR UPDATE
         `;
 
-        if (!variacao) {
+        if (!snapshot) {
           throw new NotFoundException(
             `Variacao ${item.produtoVariacaoId} nao encontrada.`,
           );
         }
 
-        const estoqueAtual = new Decimal(variacao.estoque.toString());
-        if (estoqueAtual.lt(quantidade)) {
+        if (
+          snapshot.unidadeMedida === UnidadeMedida.KG &&
+          quantidade.lt(new Decimal(5))
+        ) {
           throw new BadRequestException(
-            `Estoque insuficiente para variacao ${item.produtoVariacaoId}.`,
+            'Quantidade minima para produtos em KG e 5.',
           );
         }
 
-        const produtoVariacao = await tx.produtoVariacao.findUnique({
-          where: { id: item.produtoVariacaoId },
-          select: {
-            id: true,
-            produto: {
-              select: {
-                precoBase: true,
-              },
-            },
+        const estoqueProdutoAtual = new Decimal(snapshot.estoqueProduto.toString());
+        if (estoqueProdutoAtual.lt(quantidade)) {
+          throw new BadRequestException(
+            `Estoque insuficiente para o produto da variacao ${item.produtoVariacaoId}.`,
+          );
+        }
+
+        const estoqueVariacaoAtual = new Decimal(snapshot.estoqueVariacao.toString());
+
+        const precoUnitario = new Decimal(snapshot.precoBase.toString());
+        subtotal = subtotal.plus(precoUnitario.mul(quantidade));
+
+        await tx.produto.update({
+          where: { id: snapshot.produtoId },
+          data: {
+            quantidadeEstoque: new Prisma.Decimal(
+              estoqueProdutoAtual.minus(quantidade).toString(),
+            ),
           },
         });
-
-        if (!produtoVariacao) {
-          throw new NotFoundException(
-            `Variacao ${item.produtoVariacaoId} nao encontrada.`,
-          );
-        }
-
-        const precoUnitario = new Decimal(
-          produtoVariacao.produto.precoBase.toString(),
-        );
-        subtotal = subtotal.plus(precoUnitario.mul(quantidade));
 
         await tx.produtoVariacao.update({
           where: { id: item.produtoVariacaoId },
           data: {
-            estoque: new Prisma.Decimal(estoqueAtual.minus(quantidade).toString()),
+            estoque: new Prisma.Decimal(
+              Decimal.max(0, estoqueVariacaoAtual.minus(quantidade)).toString(),
+            ),
           },
         });
 
@@ -283,6 +301,19 @@ export class OrdersService {
       total,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async updateOrderStatus(orderId: string, status: StatusPedido) {
+    const pedido = await this.paymentsService.processarResultadoPagamento({
+      pedidoId: orderId,
+      status,
+    });
+
+    if (!pedido) {
+      throw new NotFoundException('Pedido nao encontrado.');
+    }
+
+    return pedido;
   }
 
   private buildOrdersWhere(filters: {

@@ -50,12 +50,14 @@ model Endereco {
 }
 
 model ProdutoImagem {
-  id        String   @id @default(uuid())
-  produtoId String
-  produto   Produto  @relation(fields: [produtoId], references: [id])
-  url       String
-  ordem     Int      @default(0)
-  criadoEm  DateTime @default(now())
+  id                String           @id @default(uuid())
+  produtoId         String
+  produto           Produto          @relation(fields: [produtoId], references: [id])
+  produtoVariacaoId String?
+  produtoVariacao   ProdutoVariacao? @relation(fields: [produtoVariacaoId], references: [id])
+  url               String
+  ordem             Int              @default(0)
+  criadoEm          DateTime         @default(now())
 }
 
 model Categoria {
@@ -70,6 +72,7 @@ model Produto {
   titulo        String
   descricao     String?
   precoBase     Decimal          @db.Decimal(10, 2)
+  quantidadeEstoque Decimal      @db.Decimal(10, 3) @default(0)
   unidadeMedida UnidadeMedida
   categoriaId   String
   categoria     Categoria        @relation(fields: [categoriaId], references: [id])
@@ -79,14 +82,15 @@ model Produto {
 }
 
 model ProdutoVariacao {
-  id        String       @id @default(uuid())
+  id        String          @id @default(uuid())
   produtoId String
-  produto   Produto      @relation(fields: [produtoId], references: [id])
+  produto   Produto         @relation(fields: [produtoId], references: [id])
   cor       String
-  largura   Decimal?     @db.Decimal(5, 2)
-  estoque   Decimal      @db.Decimal(10, 3)
-  sku       String       @unique
+  largura   Decimal?        @db.Decimal(5, 2)
+  estoque   Decimal         @db.Decimal(10, 3)
+  sku       String          @unique
   itens     ItemPedido[]
+  imagens   ProdutoImagem[]
 }
 
 model Pedido {

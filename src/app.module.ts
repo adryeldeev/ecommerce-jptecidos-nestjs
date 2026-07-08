@@ -12,6 +12,7 @@ import { AddressesModule } from './addresses/addresses.module';
 import { ShippingModule } from './shipping/shipping.module';
 import { AuditModule } from './audit/audit.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
     AddressesModule,
     ShippingModule,
     AuditModule,
+    AdminModule,
     CatalogModule,
     OrdersModule,
     PaymentsModule,

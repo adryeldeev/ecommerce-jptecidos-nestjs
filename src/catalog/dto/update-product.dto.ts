@@ -8,24 +8,29 @@ import {
   Matches,
 } from 'class-validator';
 
-export class CreateProductDto {
+export class UpdateProductDto {
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  titulo: string;
+  titulo?: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   descricao?: string;
 
+  @IsOptional()
   @Matches(/^\d+(\.\d{1,2})?$/)
-  precoBase: string;
+  precoBase?: string;
 
+  @IsOptional()
   @Matches(/^\d+(\.\d{1,3})?$/)
-  quantidadeEstoque: string;
+  quantidadeEstoque?: string;
 
+  @IsOptional()
   @IsEnum(UnidadeMedida)
-  unidadeMedida: UnidadeMedida;
+  unidadeMedida?: UnidadeMedida;
 
+  @IsOptional()
   @IsUUID()
-  categoriaId: string;
+  categoriaId?: string;
 }

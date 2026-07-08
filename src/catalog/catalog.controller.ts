@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UploadedFile,
@@ -15,6 +17,9 @@ import { CatalogService } from './catalog.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { CreateVariationDto } from './dto/create-variation.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { UpdateVariationDto } from './dto/update-variation.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { AdminGuard } from '../common/guards/admin.guard';
 import { ListProductsQueryDto } from './dto/list-products-query.dto';
@@ -31,9 +36,26 @@ export class CatalogController {
     private readonly storageService: StorageService,
   ) {}
 
+  @Get('categorias')
+  listCategories() {
+    return this.catalogService.listCategories();
+  }
+
   @Get('produtos')
   listProducts(@Query() query: ListProductsQueryDto) {
     return this.catalogService.listProducts(query);
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Get('produtos/:id/imagens')
+  listProductImages(@Param('id') produtoId: string) {
+    return this.catalogService.listProductImages(produtoId);
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Get('variacoes/:id/imagens')
+  listVariationImages(@Param('id') variationId: string) {
+    return this.catalogService.listVariationImages(variationId);
   }
 
   @UseGuards(JwtAuthGuard, AdminGuard)
@@ -55,6 +77,43 @@ export class CatalogController {
   }
 
   @UseGuards(JwtAuthGuard, AdminGuard)
+  @Patch('categorias/:id')
+  async updateCategory(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') categoryId: string,
+    @Body() dto: UpdateCategoryDto,
+  ) {
+    const categoria = await this.catalogService.updateCategory(categoryId, dto);
+    await this.auditService.record({
+      atorId: user.sub,
+      atorEmail: user.email,
+      acao: 'catalog.updateCategory',
+      entidade: 'Categoria',
+      entidadeId: categoria.id,
+      dados: dto,
+    });
+    return categoria;
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Delete('categorias/:id')
+  async removeCategory(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') categoryId: string,
+  ) {
+    const result = await this.catalogService.removeCategory(categoryId);
+    await this.auditService.record({
+      atorId: user.sub,
+      atorEmail: user.email,
+      acao: 'catalog.removeCategory',
+      entidade: 'Categoria',
+      entidadeId: categoryId,
+      dados: { deleted: true },
+    });
+    return result;
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Post('produtos')
   async createProduct(
     @CurrentUser() user: JwtPayload,
@@ -73,6 +132,43 @@ export class CatalogController {
   }
 
   @UseGuards(JwtAuthGuard, AdminGuard)
+  @Patch('produtos/:id')
+  async updateProduct(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') productId: string,
+    @Body() dto: UpdateProductDto,
+  ) {
+    const produto = await this.catalogService.updateProduct(productId, dto);
+    await this.auditService.record({
+      atorId: user.sub,
+      atorEmail: user.email,
+      acao: 'catalog.updateProduct',
+      entidade: 'Produto',
+      entidadeId: produto.id,
+      dados: dto,
+    });
+    return produto;
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Delete('produtos/:id')
+  async removeProduct(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') productId: string,
+  ) {
+    const result = await this.catalogService.removeProduct(productId);
+    await this.auditService.record({
+      atorId: user.sub,
+      atorEmail: user.email,
+      acao: 'catalog.removeProduct',
+      entidade: 'Produto',
+      entidadeId: productId,
+      dados: { deleted: true },
+    });
+    return result;
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Post('variacoes')
   async createVariation(
     @CurrentUser() user: JwtPayload,
@@ -88,6 +184,43 @@ export class CatalogController {
       dados: dto,
     });
     return variacao;
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Patch('variacoes/:id')
+  async updateVariation(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') variationId: string,
+    @Body() dto: UpdateVariationDto,
+  ) {
+    const variacao = await this.catalogService.updateVariation(variationId, dto);
+    await this.auditService.record({
+      atorId: user.sub,
+      atorEmail: user.email,
+      acao: 'catalog.updateVariation',
+      entidade: 'ProdutoVariacao',
+      entidadeId: variacao.id,
+      dados: dto,
+    });
+    return variacao;
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Delete('variacoes/:id')
+  async removeVariation(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') variationId: string,
+  ) {
+    const result = await this.catalogService.removeVariation(variationId);
+    await this.auditService.record({
+      atorId: user.sub,
+      atorEmail: user.email,
+      acao: 'catalog.removeVariation',
+      entidade: 'ProdutoVariacao',
+      entidadeId: variationId,
+      dados: { deleted: true },
+    });
+    return result;
   }
 
   @UseGuards(JwtAuthGuard, AdminGuard)
@@ -125,6 +258,96 @@ export class CatalogController {
       entidade: 'ProdutoImagem',
       entidadeId: image.id,
       dados: { produtoId, url: uploaded.url, key: uploaded.key },
+    });
+
+    return image;
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Post('variacoes/:id/imagens')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 5 * 1024 * 1024,
+      },
+    }),
+  )
+  async uploadVariationImage(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') variationId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('produtoId') produtoId: string,
+    @Body('ordem') ordem?: string,
+  ) {
+    const uploaded = await this.storageService.uploadProductImage({
+      buffer: file.buffer,
+      originalName: file.originalname,
+      contentType: file.mimetype,
+    });
+
+    const image = await this.catalogService.createProductImage({
+      produtoId,
+      produtoVariacaoId: variationId,
+      url: uploaded.url,
+      ordem: ordem ? Number(ordem) : undefined,
+    });
+
+    await this.auditService.record({
+      atorId: user.sub,
+      atorEmail: user.email,
+      acao: 'catalog.uploadVariationImage',
+      entidade: 'ProdutoImagem',
+      entidadeId: image.id,
+      dados: { produtoId, variationId, url: uploaded.url, key: uploaded.key },
+    });
+
+    return image;
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Patch('produtos/:produtoId/imagens/:imagemId/capa')
+  async setProductImageAsCover(
+    @CurrentUser() user: JwtPayload,
+    @Param('produtoId') produtoId: string,
+    @Param('imagemId') imagemId: string,
+  ) {
+    const image = await this.catalogService.setProductImageAsCover(
+      produtoId,
+      imagemId,
+    );
+
+    await this.auditService.record({
+      atorId: user.sub,
+      atorEmail: user.email,
+      acao: 'catalog.setProductImageAsCover',
+      entidade: 'ProdutoImagem',
+      entidadeId: imagemId,
+      dados: { produtoId, imagemId },
+    });
+
+    return image;
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Patch('variacoes/:variacaoId/imagens/:imagemId/capa')
+  async setVariationImageAsCover(
+    @CurrentUser() user: JwtPayload,
+    @Param('variacaoId') variationId: string,
+    @Param('imagemId') imageId: string,
+  ) {
+    const image = await this.catalogService.setVariationImageAsCover(
+      variationId,
+      imageId,
+    );
+
+    await this.auditService.record({
+      atorId: user.sub,
+      atorEmail: user.email,
+      acao: 'catalog.setVariationImageAsCover',
+      entidade: 'ProdutoImagem',
+      entidadeId: imageId,
+      dados: { variationId, imageId },
     });
 
     return image;

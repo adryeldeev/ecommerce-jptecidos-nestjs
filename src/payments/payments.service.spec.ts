@@ -21,7 +21,17 @@ describe('PaymentsService', () => {
   } as any;
 
   const configService = {
-    get: jest.fn(() => 'false'),
+    get: jest.fn((key: string) => {
+      if (key === 'KAFKA_ENABLED') {
+        return 'false';
+      }
+
+      return undefined;
+    }),
+  } as any;
+
+  const auditService = {
+    record: jest.fn(),
   } as any;
 
   const kafkaClient = {
@@ -30,7 +40,7 @@ describe('PaymentsService', () => {
     emit: jest.fn(),
   } as any;
 
-  const service = new PaymentsService(configService, prisma, kafkaClient);
+  const service = new PaymentsService(configService, prisma, auditService, kafkaClient);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -64,5 +74,26 @@ describe('PaymentsService', () => {
         },
       }),
     );
+  });
+
+  it('aprova pagamento localmente quando kafka está desativado', async () => {
+    prisma.pedido.update.mockResolvedValue({ id: 'pedido-1', status: StatusPedido.PAGO });
+
+    const result = await service.solicitarPagamento({
+      pedidoId: 'pedido-1',
+      usuarioId: 'user-1',
+      valorTotal: '39.90',
+      metodoPagamento: 'cartao',
+      paymentMethodId: 'pm_123',
+      paymentProvider: 'stripe',
+    });
+
+    expect(prisma.pedido.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'pedido-1' },
+        data: { status: StatusPedido.PAGO },
+      }),
+    );
+    expect(result).toEqual({ id: 'pedido-1', status: StatusPedido.PAGO });
   });
 });

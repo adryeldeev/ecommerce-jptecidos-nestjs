@@ -52,13 +52,19 @@ function getSasl(reader: EnvReader): KafkaConfig['sasl'] {
 export function buildKafkaClientOptions(reader: EnvReader): KafkaConfig {
   return {
     clientId: reader.get<string>('KAFKA_CLIENT_ID') ?? 'ecommerce-api',
-    brokers: (reader.get<string>('KAFKA_BROKERS') ?? 'localhost:9092').split(','),
+    brokers: (reader.get<string>('KAFKA_BROKERS') ?? 'localhost:9092').split(
+      ',',
+    ),
     ssl: toBool(reader.get<string>('KAFKA_SSL_ENABLED'), false),
     sasl: getSasl(reader),
   };
 }
 
-export function buildKafkaConsumerOptions(reader: EnvReader, key: string, fallback: string) {
+export function buildKafkaConsumerOptions(
+  reader: EnvReader,
+  key: string,
+  fallback: string,
+) {
   return {
     groupId: reader.get<string>(key) ?? fallback,
   };

@@ -71,4 +71,29 @@ describe('AuthService', () => {
       service.login({ email: 'cliente@loja.com', senha: '123456' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
+
+  it('faz login e devolve token com ehAdmin', async () => {
+    prisma.usuario.findUnique.mockResolvedValue({
+      id: 'admin-1',
+      email: 'admin@loja.com',
+      nome: 'Admin',
+      senha: 'hash',
+      ehAdmin: true,
+    });
+    (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+    jwtService.signAsync.mockResolvedValue('admin-token');
+
+    const result = await service.login({
+      email: 'ADMIN@LOJA.COM',
+      senha: '123456',
+    });
+
+    expect(jwtService.signAsync).toHaveBeenCalledWith({
+      sub: 'admin-1',
+      email: 'admin@loja.com',
+      ehAdmin: true,
+    });
+    expect(result.accessToken).toBe('admin-token');
+    expect(result.usuario.ehAdmin).toBe(true);
+  });
 });
