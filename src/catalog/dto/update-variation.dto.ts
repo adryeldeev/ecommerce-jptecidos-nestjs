@@ -11,12 +11,20 @@ export class UpdateVariationDto {
   cor?: string;
 
   @IsOptional()
+  @IsString()
+  corCodigo?: string;
+
+  @IsOptional()
   @Matches(/^\d+(\.\d{1,2})?$/)
   largura?: string;
 
   @IsOptional()
   @Matches(/^\d+(\.\d{1,3})?$/)
   estoque?: string;
+
+  @IsOptional()
+  @Matches(/^\d+(\.\d{1,2})?$/)
+  preco?: string;
 
   @IsOptional()
   @IsString()

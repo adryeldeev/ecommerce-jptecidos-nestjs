@@ -67,18 +67,41 @@ model Categoria {
   produtos Produto[]
 }
 
+model Fabricante {
+  id       String    @id @default(uuid())
+  nome     String    @unique
+  produtos Produto[]
+}
+
 model Produto {
-  id            String           @id @default(uuid())
-  titulo        String
-  descricao     String?
-  precoBase     Decimal          @db.Decimal(10, 2)
-  quantidadeEstoque Decimal      @db.Decimal(10, 3) @default(0)
-  unidadeMedida UnidadeMedida
-  categoriaId   String
-  categoria     Categoria        @relation(fields: [categoriaId], references: [id])
-  variacoes     ProdutoVariacao[]
-  imagens       ProdutoImagem[]
-  criadoEm      DateTime         @default(now())
+  id                  String            @id @default(uuid())
+  titulo              String
+  slug                String            @unique
+  descricao           String?           @db.Text // HTML/Markdown, renderizado no front
+
+  // Atributos do tecido (fixos por produto, independem da cor/variação)
+  composicao          String?           // ex: "68%PES 27% CO 5%PUE"
+  gramatura           Decimal?          @db.Decimal(6, 2) // g/m²
+  fabricanteId        String?
+  fabricante          Fabricante?       @relation(fields: [fabricanteId], references: [id])
+  observacoes         String?           @db.Text // ex: "CADA UNIDADE corresponde a 1 METRO..."
+
+  // Dados de envio (peso/dimensão do pacote)
+  pesoGramas          Int?
+  dimensaoAlturaCm    Decimal?          @db.Decimal(6, 2)
+  dimensaoLarguraCm   Decimal?          @db.Decimal(6, 2)
+  dimensaoComprimentoCm Decimal?        @db.Decimal(6, 2)
+
+  precoBase           Decimal           @db.Decimal(10, 2)
+  unidadeMedida       UnidadeMedida
+
+  categoriaId         String
+  categoria           Categoria         @relation(fields: [categoriaId], references: [id])
+
+  variacoes           ProdutoVariacao[]
+  imagens             ProdutoImagem[]
+
+  criadoEm            DateTime          @default(now())
 }
 
 model ProdutoVariacao {
@@ -86,7 +109,9 @@ model ProdutoVariacao {
   produtoId String
   produto   Produto         @relation(fields: [produtoId], references: [id])
   cor       String
+  corCodigo String?         // ex: "5117" (código da cor tipo "CEREJA 5117")
   largura   Decimal?        @db.Decimal(5, 2)
+  preco     Decimal?        @db.Decimal(10, 2) // se null, usa produto.precoBase
   estoque   Decimal         @db.Decimal(10, 3)
   sku       String          @unique
   itens     ItemPedido[]

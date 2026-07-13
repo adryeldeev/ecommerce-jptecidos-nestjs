@@ -74,22 +74,22 @@ export class OrdersService {
           throw new BadRequestException('Quantidade deve ser maior que zero.');
         }
 
-        // Lock pessimista para estoque da variacao e do produto.
+        // Lock pessimista para estoque da variacao.
         const [snapshot] = await tx.$queryRaw<
           Array<{
             variacaoId: string;
             estoqueVariacao: Prisma.Decimal;
             produtoId: string;
-            estoqueProduto: Prisma.Decimal;
             unidadeMedida: UnidadeMedida;
             precoBase: Prisma.Decimal;
+            precoVariacao: Prisma.Decimal | null;
           }>
         >`
           SELECT
             v.id AS "variacaoId",
             v.estoque AS "estoqueVariacao",
+            v.preco AS "precoVariacao",
             p.id AS "produtoId",
-            p."quantidadeEstoque" AS "estoqueProduto",
             p."unidadeMedida" AS "unidadeMedida",
             p."precoBase" AS "precoBase"
           FROM "ProdutoVariacao" v
@@ -113,26 +113,20 @@ export class OrdersService {
           );
         }
 
-        const estoqueProdutoAtual = new Decimal(snapshot.estoqueProduto.toString());
-        if (estoqueProdutoAtual.lt(quantidade)) {
+        const estoqueVariacaoAtual = new Decimal(snapshot.estoqueVariacao.toString());
+        if (estoqueVariacaoAtual.lt(quantidade)) {
           throw new BadRequestException(
-            `Estoque insuficiente para o produto da variacao ${item.produtoVariacaoId}.`,
+            `Estoque insuficiente para a variacao ${item.produtoVariacaoId}.`,
           );
         }
 
-        const estoqueVariacaoAtual = new Decimal(snapshot.estoqueVariacao.toString());
-
-        const precoUnitario = new Decimal(snapshot.precoBase.toString());
+        const precoVariacao = snapshot.precoVariacao
+          ? new Decimal(snapshot.precoVariacao.toString())
+          : null;
+        const precoUnitario = precoVariacao
+          ? precoVariacao
+          : new Decimal(snapshot.precoBase.toString());
         subtotal = subtotal.plus(precoUnitario.mul(quantidade));
-
-        await tx.produto.update({
-          where: { id: snapshot.produtoId },
-          data: {
-            quantidadeEstoque: new Prisma.Decimal(
-              estoqueProdutoAtual.minus(quantidade).toString(),
-            ),
-          },
-        });
 
         await tx.produtoVariacao.update({
           where: { id: item.produtoVariacaoId },

@@ -64,6 +64,22 @@ Para aplicar migrations, ajuste antes a `DATABASE_URL` com credenciais válidas.
 npm run prisma:migrate -- --name init
 ```
 
+### Seed de administrador
+
+Depois das migrations, rode o seed para garantir um usuário admin para autenticação no painel.
+
+```bash
+npm run prisma:seed
+```
+
+Variáveis usadas pelo seed:
+
+- `ADMIN_EMAIL` (default: `admin@jptecidos.com`)
+- `ADMIN_PASSWORD` (default: `Admin@123456`)
+- `ADMIN_NAME` (default: `Administrador`)
+
+O seed é idempotente: se o email já existir, ele atualiza nome, senha e define `ehAdmin=true`.
+
 ## Endpoints principais
 
 - `POST /auth/register`

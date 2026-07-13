@@ -10,6 +10,13 @@ describe('CatalogService', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    fabricante: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
     produto: {
       create: jest.fn(),
       findMany: jest.fn(),
@@ -47,6 +54,7 @@ describe('CatalogService', () => {
 
   it('cria produto convertendo precoBase para Decimal', () => {
     prisma.produto.create.mockResolvedValue({ id: 'produto-1' });
+    prisma.produto.findUnique.mockResolvedValue(null);
 
     service.createProduct({
       titulo: 'Tecido Algodao',
@@ -61,12 +69,123 @@ describe('CatalogService', () => {
         data: expect.objectContaining({
           titulo: 'Tecido Algodao',
           precoBase: expect.any(Prisma.Decimal),
+          slug: 'tecido-algodao',
         }),
       }),
     );
 
     const payload = prisma.produto.create.mock.calls[0][0];
     expect(payload.data.precoBase.toString()).toBe('39.9');
+  });
+
+  it('lanca NotFoundException quando fabricanteId nao existe', async () => {
+    prisma.fabricante.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.createProduct({
+        titulo: 'Tecido Teste',
+        precoBase: '29.90',
+        unidadeMedida: UnidadeMedida.METRO,
+        categoriaId: 'categoria-1',
+        fabricanteId: 'fabricante-inexistente',
+      }),
+    ).rejects.toThrow('Fabricante nao encontrado.');
+  });
+
+  it('lanca BadRequestException quando slug ja existe em outro produto', async () => {
+    prisma.produto.findUnique.mockResolvedValue({ id: 'produto-1' });
+    prisma.produto.findUnique.mockResolvedValueOnce({ id: 'produto-1' }).mockResolvedValueOnce({ id: 'produto-2' });
+
+    await expect(
+      service.updateProduct('produto-1', {
+        slug: 'slug-ja-existente',
+      }),
+    ).rejects.toThrow('Ja existe um produto com esse slug.');
+  });
+
+  it('lista fabricantes', () => {
+    prisma.fabricante.findMany.mockResolvedValue([{ id: 'fabricante-1', nome: 'Fabricante A' }]);
+
+    const result = service.listFabricantes();
+
+    expect(prisma.fabricante.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: { nome: 'asc' },
+      }),
+    );
+    expect(result).resolves.toEqual([{ id: 'fabricante-1', nome: 'Fabricante A' }]);
+  });
+
+  it('cria fabricante', () => {
+    prisma.fabricante.create.mockResolvedValue({ id: 'fabricante-1', nome: 'Fabricante A' });
+
+    service.createFabricante({ nome: 'Fabricante A' });
+
+    expect(prisma.fabricante.create).toHaveBeenCalledWith({
+      data: { nome: 'Fabricante A' },
+    });
+  });
+
+  it('atualiza fabricante', async () => {
+    prisma.fabricante.findUnique.mockResolvedValue({ id: 'fabricante-1' });
+    prisma.fabricante.update.mockResolvedValue({ id: 'fabricante-1', nome: 'Fabricante B' });
+
+    const result = await service.updateFabricante('fabricante-1', { nome: 'Fabricante B' });
+
+    expect(prisma.fabricante.findUnique).toHaveBeenCalledWith({
+      where: { id: 'fabricante-1' },
+      select: { id: true },
+    });
+    expect(prisma.fabricante.update).toHaveBeenCalledWith({
+      where: { id: 'fabricante-1' },
+      data: { nome: 'Fabricante B' },
+    });
+    expect(result).toEqual({ id: 'fabricante-1', nome: 'Fabricante B' });
+  });
+
+  it('lanca NotFoundException quando atualiza fabricante inexistente', async () => {
+    prisma.fabricante.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.updateFabricante('fabricante-inexistente', { nome: 'Fabricante B' }),
+    ).rejects.toThrow('Fabricante nao encontrado.');
+  });
+
+  it('remove fabricante', async () => {
+    prisma.fabricante.findUnique.mockResolvedValue({ id: 'fabricante-1' });
+    prisma.produto.count.mockResolvedValue(0);
+    prisma.fabricante.delete.mockResolvedValue(undefined);
+
+    const result = await service.removeFabricante('fabricante-1');
+
+    expect(prisma.fabricante.findUnique).toHaveBeenCalledWith({
+      where: { id: 'fabricante-1' },
+      select: { id: true },
+    });
+    expect(prisma.produto.count).toHaveBeenCalledWith({
+      where: { fabricanteId: 'fabricante-1' },
+    });
+    expect(prisma.fabricante.delete).toHaveBeenCalledWith({
+      where: { id: 'fabricante-1' },
+    });
+    expect(result).toEqual({ deleted: true });
+  });
+
+  it('lanca NotFoundException quando remove fabricante inexistente', async () => {
+    prisma.fabricante.findUnique.mockResolvedValue(null);
+
+    await expect(service.removeFabricante('fabricante-inexistente')).rejects.toThrow(
+      'Fabricante nao encontrado.',
+    );
+  });
+
+  it('lanca BadRequestException quando remove fabricante com produtos vinculados', async () => {
+    prisma.fabricante.findUnique.mockResolvedValue({ id: 'fabricante-1' });
+    prisma.produto.count.mockResolvedValue(5);
+
+    await expect(service.removeFabricante('fabricante-1')).rejects.toThrow(
+      'Nao e possivel excluir fabricante com produtos vinculados.',
+    );
   });
 
   it('lista produtos com filtros e paginação', async () => {

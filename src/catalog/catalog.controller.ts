@@ -15,9 +15,11 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { CatalogService } from './catalog.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
+import { CreateFabricanteDto } from './dto/create-fabricante.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { CreateVariationDto } from './dto/create-variation.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { UpdateFabricanteDto } from './dto/update-fabricante.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateVariationDto } from './dto/update-variation.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -108,6 +110,66 @@ export class CatalogController {
       acao: 'catalog.removeCategory',
       entidade: 'Categoria',
       entidadeId: categoryId,
+      dados: { deleted: true },
+    });
+    return result;
+  }
+
+  @Get('fabricantes')
+  listFabricantes() {
+    return this.catalogService.listFabricantes();
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Post('fabricantes')
+  async createFabricante(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateFabricanteDto,
+  ) {
+    const fabricante = await this.catalogService.createFabricante(dto);
+    await this.auditService.record({
+      atorId: user.sub,
+      atorEmail: user.email,
+      acao: 'catalog.createFabricante',
+      entidade: 'Fabricante',
+      entidadeId: fabricante.id,
+      dados: dto,
+    });
+    return fabricante;
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Patch('fabricantes/:id')
+  async updateFabricante(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') fabricanteId: string,
+    @Body() dto: UpdateFabricanteDto,
+  ) {
+    const fabricante = await this.catalogService.updateFabricante(fabricanteId, dto);
+    await this.auditService.record({
+      atorId: user.sub,
+      atorEmail: user.email,
+      acao: 'catalog.updateFabricante',
+      entidade: 'Fabricante',
+      entidadeId: fabricante.id,
+      dados: dto,
+    });
+    return fabricante;
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Delete('fabricantes/:id')
+  async removeFabricante(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') fabricanteId: string,
+  ) {
+    const result = await this.catalogService.removeFabricante(fabricanteId);
+    await this.auditService.record({
+      atorId: user.sub,
+      atorEmail: user.email,
+      acao: 'catalog.removeFabricante',
+      entidade: 'Fabricante',
+      entidadeId: fabricanteId,
       dados: { deleted: true },
     });
     return result;

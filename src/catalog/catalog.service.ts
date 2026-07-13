@@ -1,12 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import slugify from 'slugify';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
+import { CreateFabricanteDto } from './dto/create-fabricante.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { CreateVariationDto } from './dto/create-variation.dto';
 import { ListProductsQueryDto } from './dto/list-products-query.dto';
 import { CreateProductImageInput } from './types/create-product-image-input.type';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { UpdateFabricanteDto } from './dto/update-fabricante.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateVariationDto } from './dto/update-variation.dto';
 
@@ -96,15 +99,106 @@ export class CatalogService {
     return { deleted: true };
   }
 
-  createProduct(dto: CreateProductDto) {
+  listFabricantes() {
+    return this.prisma.fabricante.findMany({
+      orderBy: { nome: 'asc' },
+    });
+  }
+
+  createFabricante(dto: CreateFabricanteDto) {
+    return this.prisma.fabricante.create({ data: dto });
+  }
+
+  async updateFabricante(id: string, dto: UpdateFabricanteDto) {
+    const fabricante = await this.prisma.fabricante.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!fabricante) {
+      throw new NotFoundException('Fabricante nao encontrado.');
+    }
+
+    return this.prisma.fabricante.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
+  async removeFabricante(id: string) {
+    const fabricante = await this.prisma.fabricante.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!fabricante) {
+      throw new NotFoundException('Fabricante nao encontrado.');
+    }
+
+    const productCount = await this.prisma.produto.count({
+      where: { fabricanteId: id },
+    });
+
+    if (productCount > 0) {
+      throw new BadRequestException(
+        'Nao e possivel excluir fabricante com produtos vinculados.',
+      );
+    }
+
+    await this.prisma.fabricante.delete({ where: { id } });
+    return { deleted: true };
+  }
+
+  private async gerarSlugUnico(titulo: string): Promise<string> {
+    const base = slugify(titulo, { lower: true, strict: true });
+    let slug = base;
+    let contador = 2;
+
+    while (await this.prisma.produto.findUnique({ where: { slug }, select: { id: true } })) {
+      slug = `${base}-${contador}`;
+      contador++;
+    }
+
+    return slug;
+  }
+
+  async createProduct(dto: CreateProductDto) {
+    if (dto.fabricanteId) {
+      const fabricante = await this.prisma.fabricante.findUnique({
+        where: { id: dto.fabricanteId },
+        select: { id: true },
+      });
+      if (!fabricante) {
+        throw new NotFoundException('Fabricante nao encontrado.');
+      }
+    }
+
+    const slug = await this.gerarSlugUnico(dto.titulo);
+
     return this.prisma.produto.create({
       data: {
         titulo: dto.titulo,
         descricao: dto.descricao,
         precoBase: new Prisma.Decimal(dto.precoBase),
-        quantidadeEstoque: new Prisma.Decimal(dto.quantidadeEstoque),
         unidadeMedida: dto.unidadeMedida,
         categoriaId: dto.categoriaId,
+        slug,
+        ...(dto.composicao !== undefined ? { composicao: dto.composicao } : {}),
+        ...(dto.gramatura !== undefined
+          ? { gramatura: new Prisma.Decimal(dto.gramatura) }
+          : {}),
+        ...(dto.fabricanteId !== undefined ? { fabricanteId: dto.fabricanteId } : {}),
+        ...(dto.observacoes !== undefined ? { observacoes: dto.observacoes } : {}),
+        ...(dto.pesoGramas !== undefined ? { pesoGramas: dto.pesoGramas } : {}),
+        ...(dto.dimensaoAlturaCm !== undefined
+          ? { dimensaoAlturaCm: new Prisma.Decimal(dto.dimensaoAlturaCm) }
+          : {}),
+        ...(dto.dimensaoLarguraCm !== undefined
+          ? { dimensaoLarguraCm: new Prisma.Decimal(dto.dimensaoLarguraCm) }
+          : {}),
+        ...(dto.dimensaoComprimentoCm !== undefined
+          ? { dimensaoComprimentoCm: new Prisma.Decimal(dto.dimensaoComprimentoCm) }
+          : {}),
       },
     });
   }
@@ -119,6 +213,26 @@ export class CatalogService {
       throw new NotFoundException('Produto nao encontrado.');
     }
 
+    if (dto.fabricanteId) {
+      const fabricante = await this.prisma.fabricante.findUnique({
+        where: { id: dto.fabricanteId },
+        select: { id: true },
+      });
+      if (!fabricante) {
+        throw new NotFoundException('Fabricante nao encontrado.');
+      }
+    }
+
+    if (dto.slug) {
+      const existingSlug = await this.prisma.produto.findUnique({
+        where: { slug: dto.slug },
+        select: { id: true },
+      });
+      if (existingSlug && existingSlug.id !== id) {
+        throw new BadRequestException('Ja existe um produto com esse slug.');
+      }
+    }
+
     return this.prisma.produto.update({
       where: { id },
       data: {
@@ -127,13 +241,27 @@ export class CatalogService {
         ...(dto.precoBase !== undefined
           ? { precoBase: new Prisma.Decimal(dto.precoBase) }
           : {}),
-        ...(dto.quantidadeEstoque !== undefined
-          ? { quantidadeEstoque: new Prisma.Decimal(dto.quantidadeEstoque) }
-          : {}),
         ...(dto.unidadeMedida !== undefined
           ? { unidadeMedida: dto.unidadeMedida }
           : {}),
         ...(dto.categoriaId !== undefined ? { categoriaId: dto.categoriaId } : {}),
+        ...(dto.composicao !== undefined ? { composicao: dto.composicao } : {}),
+        ...(dto.gramatura !== undefined
+          ? { gramatura: new Prisma.Decimal(dto.gramatura) }
+          : {}),
+        ...(dto.fabricanteId !== undefined ? { fabricanteId: dto.fabricanteId } : {}),
+        ...(dto.observacoes !== undefined ? { observacoes: dto.observacoes } : {}),
+        ...(dto.pesoGramas !== undefined ? { pesoGramas: dto.pesoGramas } : {}),
+        ...(dto.dimensaoAlturaCm !== undefined
+          ? { dimensaoAlturaCm: new Prisma.Decimal(dto.dimensaoAlturaCm) }
+          : {}),
+        ...(dto.dimensaoLarguraCm !== undefined
+          ? { dimensaoLarguraCm: new Prisma.Decimal(dto.dimensaoLarguraCm) }
+          : {}),
+        ...(dto.dimensaoComprimentoCm !== undefined
+          ? { dimensaoComprimentoCm: new Prisma.Decimal(dto.dimensaoComprimentoCm) }
+          : {}),
+        ...(dto.slug !== undefined ? { slug: dto.slug } : {}),
       },
     });
   }
@@ -176,8 +304,12 @@ export class CatalogService {
       data: {
         produtoId: dto.produtoId,
         cor: dto.cor,
+        ...(dto.corCodigo !== undefined ? { corCodigo: dto.corCodigo } : {}),
         largura: dto.largura ? new Prisma.Decimal(dto.largura) : null,
         estoque: new Prisma.Decimal(dto.estoque),
+        ...(dto.preco !== undefined
+          ? { preco: new Prisma.Decimal(dto.preco) }
+          : {}),
         sku: dto.sku,
       },
     });
@@ -198,11 +330,15 @@ export class CatalogService {
       data: {
         ...(dto.produtoId !== undefined ? { produtoId: dto.produtoId } : {}),
         ...(dto.cor !== undefined ? { cor: dto.cor } : {}),
+        ...(dto.corCodigo !== undefined ? { corCodigo: dto.corCodigo } : {}),
         ...(dto.largura !== undefined
           ? { largura: new Prisma.Decimal(dto.largura) }
           : {}),
         ...(dto.estoque !== undefined
           ? { estoque: new Prisma.Decimal(dto.estoque) }
+          : {}),
+        ...(dto.preco !== undefined
+          ? { preco: new Prisma.Decimal(dto.preco) }
           : {}),
         ...(dto.sku !== undefined ? { sku: dto.sku } : {}),
       },

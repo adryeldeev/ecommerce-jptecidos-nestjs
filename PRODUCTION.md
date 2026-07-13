@@ -18,6 +18,9 @@ Este documento descreve o mínimo necessário para colocar o sistema completo em
 
 - DATABASE_URL
 - JWT_SECRET
+- ADMIN_EMAIL
+- ADMIN_PASSWORD
+- ADMIN_NAME
 - STORAGE_DRIVER
 - AWS_REGION
 - AWS_S3_BUCKET
