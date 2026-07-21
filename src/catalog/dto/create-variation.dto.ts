@@ -12,10 +12,6 @@ export class CreateVariationDto {
   @IsString()
   corCodigo?: string;
 
-  @IsOptional()
-  @Matches(/^\d+(\.\d{1,2})?$/)
-  largura?: string;
-
   @Matches(/^\d+(\.\d{1,3})?$/)
   estoque: string;
 

@@ -206,20 +206,16 @@ export class CatalogService {
         categoriaId: dto.categoriaId,
         slug,
         ...(dto.composicao !== undefined ? { composicao: dto.composicao } : {}),
-        ...(dto.gramatura !== undefined
+        ...(dto.gramatura !== undefined && dto.gramatura !== null && dto.gramatura !== ''
           ? { gramatura: new Prisma.Decimal(dto.gramatura) }
           : {}),
         ...(dto.fabricanteId !== undefined ? { fabricanteId: dto.fabricanteId } : {}),
         ...(dto.observacoes !== undefined ? { observacoes: dto.observacoes } : {}),
-        ...(dto.pesoGramas !== undefined ? { pesoGramas: dto.pesoGramas } : {}),
-        ...(dto.dimensaoAlturaCm !== undefined
-          ? { dimensaoAlturaCm: new Prisma.Decimal(dto.dimensaoAlturaCm) }
+        ...(dto.largura !== undefined && dto.largura !== null && dto.largura !== ''
+          ? { largura: new Prisma.Decimal(dto.largura) }
           : {}),
-        ...(dto.dimensaoLarguraCm !== undefined
-          ? { dimensaoLarguraCm: new Prisma.Decimal(dto.dimensaoLarguraCm) }
-          : {}),
-        ...(dto.dimensaoComprimentoCm !== undefined
-          ? { dimensaoComprimentoCm: new Prisma.Decimal(dto.dimensaoComprimentoCm) }
+        ...(dto.rendimento !== undefined && dto.rendimento !== null && dto.rendimento !== ''
+          ? { rendimento: new Prisma.Decimal(dto.rendimento) }
           : {}),
         ...(dto.maisProcurado !== undefined ? { maisProcurado: dto.maisProcurado } : {}),
         ...(dto.lancamento !== undefined ? { lancamento: dto.lancamento } : {}),
@@ -262,7 +258,7 @@ export class CatalogService {
       data: {
         ...(dto.titulo !== undefined ? { titulo: dto.titulo } : {}),
         ...(dto.descricao !== undefined ? { descricao: dto.descricao } : {}),
-        ...(dto.precoBase !== undefined
+        ...(dto.precoBase !== undefined && dto.precoBase !== null && dto.precoBase !== ''
           ? { precoBase: new Prisma.Decimal(dto.precoBase) }
           : {}),
         ...(dto.unidadeMedida !== undefined
@@ -270,20 +266,16 @@ export class CatalogService {
           : {}),
         ...(dto.categoriaId !== undefined ? { categoriaId: dto.categoriaId } : {}),
         ...(dto.composicao !== undefined ? { composicao: dto.composicao } : {}),
-        ...(dto.gramatura !== undefined
+        ...(dto.gramatura !== undefined && dto.gramatura !== null && dto.gramatura !== ''
           ? { gramatura: new Prisma.Decimal(dto.gramatura) }
           : {}),
         ...(dto.fabricanteId !== undefined ? { fabricanteId: dto.fabricanteId } : {}),
         ...(dto.observacoes !== undefined ? { observacoes: dto.observacoes } : {}),
-        ...(dto.pesoGramas !== undefined ? { pesoGramas: dto.pesoGramas } : {}),
-        ...(dto.dimensaoAlturaCm !== undefined
-          ? { dimensaoAlturaCm: new Prisma.Decimal(dto.dimensaoAlturaCm) }
+        ...(dto.largura !== undefined && dto.largura !== null && dto.largura !== ''
+          ? { largura: new Prisma.Decimal(dto.largura) }
           : {}),
-        ...(dto.dimensaoLarguraCm !== undefined
-          ? { dimensaoLarguraCm: new Prisma.Decimal(dto.dimensaoLarguraCm) }
-          : {}),
-        ...(dto.dimensaoComprimentoCm !== undefined
-          ? { dimensaoComprimentoCm: new Prisma.Decimal(dto.dimensaoComprimentoCm) }
+        ...(dto.rendimento !== undefined && dto.rendimento !== null && dto.rendimento !== ''
+          ? { rendimento: new Prisma.Decimal(dto.rendimento) }
           : {}),
         ...(dto.slug !== undefined ? { slug: dto.slug } : {}),
         ...(dto.maisProcurado !== undefined ? { maisProcurado: dto.maisProcurado } : {}),
@@ -346,7 +338,6 @@ export class CatalogService {
         produtoId: dto.produtoId,
         cor: dto.cor,
         ...(dto.corCodigo !== undefined ? { corCodigo: dto.corCodigo } : {}),
-        largura: dto.largura ? new Prisma.Decimal(dto.largura) : null,
         estoque: new Prisma.Decimal(dto.estoque),
         ...(dto.preco !== undefined
           ? { preco: new Prisma.Decimal(dto.preco) }
@@ -396,9 +387,6 @@ export class CatalogService {
         ...(dto.produtoId !== undefined ? { produtoId: dto.produtoId } : {}),
         ...(dto.cor !== undefined ? { cor: dto.cor } : {}),
         ...(dto.corCodigo !== undefined ? { corCodigo: dto.corCodigo } : {}),
-        ...(dto.largura !== undefined
-          ? { largura: new Prisma.Decimal(dto.largura) }
-          : {}),
         ...(dto.estoque !== undefined
           ? { estoque: new Prisma.Decimal(dto.estoque) }
           : {}),

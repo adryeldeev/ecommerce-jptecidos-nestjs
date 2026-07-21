@@ -15,10 +15,6 @@ export class UpdateVariationDto {
   corCodigo?: string;
 
   @IsOptional()
-  @Matches(/^\d+(\.\d{1,2})?$/)
-  largura?: string;
-
-  @IsOptional()
   @Matches(/^\d+(\.\d{1,3})?$/)
   estoque?: string;
 

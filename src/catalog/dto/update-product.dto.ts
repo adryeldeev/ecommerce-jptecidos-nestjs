@@ -3,12 +3,10 @@ import {
   IsBoolean,
   IsEnum,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
-  Min,
 } from 'class-validator';
 
 export class UpdateProductDto {
@@ -50,21 +48,12 @@ export class UpdateProductDto {
   observacoes?: string;
 
   @IsOptional()
-  @IsNumber()
-  @Min(0)
-  pesoGramas?: number;
+  @Matches(/^\d+(\.\d{1,2})?$/)
+  largura?: string;
 
   @IsOptional()
   @Matches(/^\d+(\.\d{1,2})?$/)
-  dimensaoAlturaCm?: string;
-
-  @IsOptional()
-  @Matches(/^\d+(\.\d{1,2})?$/)
-  dimensaoLarguraCm?: string;
-
-  @IsOptional()
-  @Matches(/^\d+(\.\d{1,2})?$/)
-  dimensaoComprimentoCm?: string;
+  rendimento?: string;
 
   @IsOptional()
   @Matches(/^[a-z0-9-]+$/)

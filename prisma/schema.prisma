@@ -82,15 +82,11 @@ model Produto {
   // Atributos do tecido (fixos por produto, independem da cor/variação)
   composicao          String?           // ex: "68%PES 27% CO 5%PUE"
   gramatura           Decimal?          @db.Decimal(6, 2) // g/m²
+  largura             Decimal?          @db.Decimal(5, 2) // largura do rolo em metros, ex: 1.70
+  rendimento          Decimal?          @db.Decimal(6, 2) // metros por kg, ex: 1.70
   fabricanteId        String?
   fabricante          Fabricante?       @relation(fields: [fabricanteId], references: [id])
   observacoes         String?           @db.Text // ex: "CADA UNIDADE corresponde a 1 METRO..."
-
-  // Dados de envio (peso/dimensão do pacote)
-  pesoGramas          Int?
-  dimensaoAlturaCm    Decimal?          @db.Decimal(6, 2)
-  dimensaoLarguraCm   Decimal?          @db.Decimal(6, 2)
-  dimensaoComprimentoCm Decimal?        @db.Decimal(6, 2)
 
   precoBase           Decimal           @db.Decimal(10, 2)
   unidadeMedida       UnidadeMedida
@@ -113,7 +109,6 @@ model ProdutoVariacao {
   produto   Produto         @relation(fields: [produtoId], references: [id])
   cor       String
   corCodigo String?         // ex: "5117" (código da cor tipo "CEREJA 5117")
-  largura   Decimal?        @db.Decimal(5, 2)
   preco     Decimal?        @db.Decimal(10, 2) // se null, usa produto.precoBase
   estoque   Decimal         @db.Decimal(10, 3)
   sku       String          @unique
