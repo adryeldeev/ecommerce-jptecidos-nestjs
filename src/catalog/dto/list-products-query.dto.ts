@@ -55,6 +55,16 @@ export class ListProductsQueryDto {
   somenteDisponiveis?: boolean;
 
   @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  maisProcurado?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  lancamento?: boolean;
+
+  @IsOptional()
   @IsEnum(OrdenacaoProdutos)
   ordenacao?: OrdenacaoProdutos = OrdenacaoProdutos.RECENTES;
 }

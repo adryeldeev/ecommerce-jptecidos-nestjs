@@ -21,6 +21,10 @@ export class CreateVariationDto {
 
   @IsOptional()
   @Matches(/^\d+(\.\d{1,2})?$/)
+  metragemPorPeca?: string;
+
+  @IsOptional()
+  @Matches(/^\d+(\.\d{1,2})?$/)
   preco?: string;
 
   @IsString()

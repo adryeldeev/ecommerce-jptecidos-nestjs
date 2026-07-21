@@ -17,6 +17,10 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.use(helmet());
+  app.enableCors({
+    origin: 'http://localhost:3000',
+    credentials: true,
+  });
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: PUBLIC_UPLOADS_PREFIX,
   });

@@ -101,6 +101,9 @@ model Produto {
   variacoes           ProdutoVariacao[]
   imagens             ProdutoImagem[]
 
+  maisProcurado       Boolean           @default(false)
+  lancamento          Boolean           @default(false)
+
   criadoEm            DateTime          @default(now())
 }
 
@@ -114,6 +117,7 @@ model ProdutoVariacao {
   preco     Decimal?        @db.Decimal(10, 2) // se null, usa produto.precoBase
   estoque   Decimal         @db.Decimal(10, 3)
   sku       String          @unique
+  metragemPorPeca Decimal?  @db.Decimal(6, 2)
   itens     ItemPedido[]
   imagens   ProdutoImagem[]
 }

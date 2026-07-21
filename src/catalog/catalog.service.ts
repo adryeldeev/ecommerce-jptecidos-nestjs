@@ -55,6 +55,28 @@ export class CatalogService {
     });
   }
 
+  async getProductBySlug(slug: string) {
+    const product = await this.prisma.produto.findUnique({
+      where: { slug },
+      include: {
+        categoria: true,
+        fabricante: true,
+        variacoes: {
+          include: {
+            imagens: true,
+          },
+        },
+        imagens: true,
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Produto nao encontrado.');
+    }
+
+    return product;
+  }
+
   createCategory(dto: CreateCategoryDto) {
     return this.prisma.categoria.create({ data: dto });
   }
@@ -199,6 +221,8 @@ export class CatalogService {
         ...(dto.dimensaoComprimentoCm !== undefined
           ? { dimensaoComprimentoCm: new Prisma.Decimal(dto.dimensaoComprimentoCm) }
           : {}),
+        ...(dto.maisProcurado !== undefined ? { maisProcurado: dto.maisProcurado } : {}),
+        ...(dto.lancamento !== undefined ? { lancamento: dto.lancamento } : {}),
       },
     });
   }
@@ -262,6 +286,8 @@ export class CatalogService {
           ? { dimensaoComprimentoCm: new Prisma.Decimal(dto.dimensaoComprimentoCm) }
           : {}),
         ...(dto.slug !== undefined ? { slug: dto.slug } : {}),
+        ...(dto.maisProcurado !== undefined ? { maisProcurado: dto.maisProcurado } : {}),
+        ...(dto.lancamento !== undefined ? { lancamento: dto.lancamento } : {}),
       },
     });
   }
@@ -299,7 +325,22 @@ export class CatalogService {
     return { deleted: true };
   }
 
-  createVariation(dto: CreateVariationDto) {
+  async createVariation(dto: CreateVariationDto) {
+    const produto = await this.prisma.produto.findUnique({
+      where: { id: dto.produtoId },
+      select: { id: true, unidadeMedida: true },
+    });
+
+    if (!produto) {
+      throw new NotFoundException('Produto nao encontrado.');
+    }
+
+    if (produto.unidadeMedida === 'METRO' && !dto.metragemPorPeca) {
+      throw new BadRequestException(
+        'metragemPorPeca e obrigatorio para produtos vendidos por metro (peca fechada).',
+      );
+    }
+
     return this.prisma.produtoVariacao.create({
       data: {
         produtoId: dto.produtoId,
@@ -311,6 +352,9 @@ export class CatalogService {
           ? { preco: new Prisma.Decimal(dto.preco) }
           : {}),
         sku: dto.sku,
+        ...(dto.metragemPorPeca !== undefined
+          ? { metragemPorPeca: new Prisma.Decimal(dto.metragemPorPeca) }
+          : {}),
       },
     });
   }
@@ -318,11 +362,32 @@ export class CatalogService {
   async updateVariation(id: string, dto: UpdateVariationDto) {
     const variation = await this.prisma.produtoVariacao.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, produtoId: true },
     });
 
     if (!variation) {
       throw new NotFoundException('Variacao nao encontrada.');
+    }
+
+    const produto = await this.prisma.produto.findUnique({
+      where: { id: variation.produtoId },
+      select: { id: true, unidadeMedida: true },
+    });
+
+    if (!produto) {
+      throw new NotFoundException('Produto nao encontrado.');
+    }
+
+    if (produto.unidadeMedida === 'METRO' && !dto.metragemPorPeca) {
+      const existing = await this.prisma.produtoVariacao.findUnique({
+        where: { id },
+        select: { metragemPorPeca: true },
+      });
+      if (!existing?.metragemPorPeca) {
+        throw new BadRequestException(
+          'metragemPorPeca e obrigatorio para produtos vendidos por metro (peca fechada).',
+        );
+      }
     }
 
     return this.prisma.produtoVariacao.update({
@@ -341,6 +406,9 @@ export class CatalogService {
           ? { preco: new Prisma.Decimal(dto.preco) }
           : {}),
         ...(dto.sku !== undefined ? { sku: dto.sku } : {}),
+        ...(dto.metragemPorPeca !== undefined
+          ? { metragemPorPeca: new Prisma.Decimal(dto.metragemPorPeca) }
+          : {}),
       },
     });
   }
@@ -516,6 +584,8 @@ export class CatalogService {
             },
           }
         : {}),
+      ...(query.maisProcurado ? { maisProcurado: true } : {}),
+      ...(query.lancamento ? { lancamento: true } : {}),
     };
 
     const orderBy =

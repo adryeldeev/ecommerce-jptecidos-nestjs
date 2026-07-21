@@ -48,6 +48,11 @@ export class CatalogController {
     return this.catalogService.listProducts(query);
   }
 
+  @Get('produtos/:slug')
+  getProductBySlug(@Param('slug') slug: string) {
+    return this.catalogService.getProductBySlug(slug);
+  }
+
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Get('produtos/:id/imagens')
   listProductImages(@Param('id') produtoId: string) {

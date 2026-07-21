@@ -13,6 +13,7 @@ import { ShippingModule } from './shipping/shipping.module';
 import { AuditModule } from './audit/audit.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AdminModule } from './admin/admin.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { AdminModule } from './admin/admin.module';
     CatalogModule,
     OrdersModule,
     PaymentsModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [

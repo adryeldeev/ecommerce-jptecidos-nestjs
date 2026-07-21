@@ -1,5 +1,6 @@
 import { UnidadeMedida } from '@prisma/client';
 import {
+  IsBoolean,
   IsEnum,
   IsNotEmpty,
   IsNumber,
@@ -60,4 +61,12 @@ export class CreateProductDto {
   @IsOptional()
   @Matches(/^\d+(\.\d{1,2})?$/)
   dimensaoComprimentoCm?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  maisProcurado?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  lancamento?: boolean;
 }
