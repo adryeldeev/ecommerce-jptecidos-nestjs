@@ -61,10 +61,11 @@ model ProdutoImagem {
 }
 
 model Categoria {
-  id       String    @id @default(uuid())
-  nome     String    @unique
-  slug     String    @unique
-  produtos Produto[]
+  id        String    @id @default(uuid())
+  nome      String    @unique
+  slug      String    @unique
+  imagemUrl String?
+  produtos  Produto[]
 }
 
 model Fabricante {

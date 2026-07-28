@@ -121,6 +121,22 @@ export class CatalogService {
     return { deleted: true };
   }
 
+  async uploadCategoryImage(id: string, url: string) {
+    const category = await this.prisma.categoria.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!category) {
+      throw new NotFoundException('Categoria nao encontrada.');
+    }
+
+    return this.prisma.categoria.update({
+      where: { id },
+      data: { imagemUrl: url },
+    });
+  }
+
   listFabricantes() {
     return this.prisma.fabricante.findMany({
       orderBy: { nome: 'asc' },

@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import { ensureDirectory } from '../common/storage/storage.util';
 import {
-  PRODUCT_IMAGES_FOLDER,
+  CATEGORY_IMAGES_UPLOAD_DIR,
   PRODUCT_IMAGES_UPLOAD_DIR,
   PUBLIC_UPLOADS_PREFIX,
   STORAGE_DRIVER_LOCAL,
@@ -50,6 +50,13 @@ export class StorageService {
     });
   }
 
+  async uploadCategoryImage(input: Omit<UploadFileInput, 'folder'>): Promise<UploadFileResult> {
+    return this.uploadFile({
+      ...input,
+      folder: CATEGORY_IMAGES_UPLOAD_DIR,
+    });
+  }
+
   private async uploadFile(input: UploadFileInput): Promise<UploadFileResult> {
     return this.driver === STORAGE_DRIVER_S3
       ? this.uploadToS3(input)
@@ -88,9 +95,11 @@ export class StorageService {
 
     await fs.writeFile(join(destination, filename), input.buffer);
 
+    const sanitizedFolder = input.folder.replace(/\\/g, '/').replace(/^uploads\//, '');
+
     return {
       key: `${input.folder}/${filename}`.replace(/\\/g, '/'),
-      url: `${PUBLIC_UPLOADS_PREFIX}/${PRODUCT_IMAGES_FOLDER}/${filename}`,
+      url: `${PUBLIC_UPLOADS_PREFIX}/${sanitizedFolder}/${filename}`,
     };
   }
 

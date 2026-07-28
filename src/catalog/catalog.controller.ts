@@ -120,6 +120,44 @@ export class CatalogController {
     return result;
   }
 
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Post('categorias/:id/imagem')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 5 * 1024 * 1024,
+      },
+    }),
+  )
+  async uploadCategoryImage(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') categoryId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const uploaded = await this.storageService.uploadCategoryImage({
+      buffer: file.buffer,
+      originalName: file.originalname,
+      contentType: file.mimetype,
+    });
+
+    const categoria = await this.catalogService.uploadCategoryImage(
+      categoryId,
+      uploaded.url,
+    );
+
+    await this.auditService.record({
+      atorId: user.sub,
+      atorEmail: user.email,
+      acao: 'catalog.uploadCategoryImage',
+      entidade: 'Categoria',
+      entidadeId: categoria.id,
+      dados: { url: uploaded.url, key: uploaded.key },
+    });
+
+    return categoria;
+  }
+
   @Get('fabricantes')
   listFabricantes() {
     return this.catalogService.listFabricantes();

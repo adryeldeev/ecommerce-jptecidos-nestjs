@@ -89,6 +89,7 @@ O seed é idempotente: se o email já existir, ele atualiza nome, senha e define
 - `GET /catalogo/produtos`
 - `POST /categorias|produtos|variacoes` via `/catalogo/*` apenas admin
 - `POST /catalogo/produtos/:id/imagens` apenas admin
+- `POST /catalogo/categorias/:id/imagem` apenas admin
 - `GET /enderecos`
 - `POST /enderecos`
 - `PATCH /enderecos/:id`
