@@ -23,7 +23,7 @@ export class OrdersService {
     const metodoPagamentoNormalizado = dto.metodoPagamento.toLowerCase().trim();
     const usaCartao = metodoPagamentoNormalizado === 'cartao';
     const paymentProvider = usaCartao
-      ? (dto.paymentProvider?.toLowerCase().trim() ?? 'stripe')
+      ? (dto.paymentProvider?.toLowerCase().trim() ?? 'mercadopago')
       : undefined;
 
     if (usaCartao && !dto.paymentMethodId) {
@@ -32,9 +32,9 @@ export class OrdersService {
       );
     }
 
-    if (usaCartao && paymentProvider !== 'stripe') {
+    if (usaCartao && paymentProvider !== 'mercadopago') {
       throw new BadRequestException(
-        'paymentProvider invalido para cartao. Use stripe.',
+        'paymentProvider invalido para cartao. Use mercadopago.',
       );
     }
 

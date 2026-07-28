@@ -84,8 +84,8 @@ describe('PaymentsService', () => {
       usuarioId: 'user-1',
       valorTotal: '39.90',
       metodoPagamento: 'cartao',
-      paymentMethodId: 'pm_123',
-      paymentProvider: 'stripe',
+      paymentMethodId: 'mp_123',
+      paymentProvider: 'mercadopago',
     });
 
     expect(prisma.pedido.update).toHaveBeenCalledWith(

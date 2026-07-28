@@ -37,8 +37,8 @@ Este documento descreve o mínimo necessário para colocar o sistema completo em
 - KAFKA_USERNAME
 - KAFKA_PASSWORD
 - KAFKA_SSL_ENABLED
-- STRIPE_SECRET_KEY
-- STRIPE_WEBHOOK_SECRET
+- MERCADOPAGO_ACCESS_TOKEN
+- MERCADOPAGO_WEBHOOK_SECRET
 
 ## 4) Subida da stack
 
@@ -96,7 +96,7 @@ docker compose -f docker-compose.prod.yml ps
 - [ ] Migrations aplicadas
 - [ ] KAFKA desativado ou configurado corretamente
 - [ ] STORAGE_DRIVER=s3 com bucket funcional
-- [ ] Segredos de Stripe configurados
+- [ ] Segredos do Mercado Pago configurados
 - [ ] Backup do banco validado
 - [ ] Healthcheck e logs monitorados
 - [ ] Teste ponta a ponta de checkout executado

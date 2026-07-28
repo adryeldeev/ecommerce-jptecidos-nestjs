@@ -40,12 +40,12 @@ export class CreateOrderDto {
   @ValidateIf((o: CreateOrderDto) => o.metodoPagamento === 'cartao')
   @IsString()
   @IsNotEmpty()
-  @Matches(/^pm_[A-Za-z0-9_]+$/)
+  @Matches(/^[A-Za-z0-9_-]+$/)
   paymentMethodId?: string;
 
   @ValidateIf((o: CreateOrderDto) => o.metodoPagamento === 'cartao')
   @IsString()
-  @IsIn(['stripe'])
+  @IsIn(['mercadopago'])
   paymentProvider?: string;
 
   @IsArray()

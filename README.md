@@ -53,8 +53,8 @@ docker compose -f docker-compose.prod.yml --env-file .env.production up -d --bui
 - `STORAGE_DRIVER`: `local` ou `s3`.
 - `AWS_REGION`, `AWS_S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`: upload S3.
 - `AWS_S3_PUBLIC_BASE_URL`: opcional para CDN/custom domain.
-- `STRIPE_SECRET_KEY`: reservado para integração futura.
-- `STRIPE_WEBHOOK_SECRET`: reservado para integração futura.
+- `MERCADOPAGO_ACCESS_TOKEN`: reservado para integração futura.
+- `MERCADOPAGO_WEBHOOK_SECRET`: reservado para integração futura.
 
 ## Banco de dados
 
@@ -121,7 +121,7 @@ O seed é idempotente: se o email já existir, ele atualiza nome, senha e define
 
 ## Pagamento
 
-Hoje o backend está pronto para receber `paymentMethodId` tokenizado, mas ainda sem chamada direta ao Stripe. O contrato já está preparado para a integração real quando as credenciais forem disponibilizadas.
+Hoje o backend está pronto para receber `paymentMethodId` tokenizado, mas ainda sem chamada direta ao Mercado Pago. O contrato já está preparado para a integração real quando as credenciais forem disponibilizadas.
 
 ## Upload de imagens
 
