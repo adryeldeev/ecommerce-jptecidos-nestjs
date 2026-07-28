@@ -49,10 +49,18 @@ export class CatalogService {
     });
   }
 
-  listCategories() {
-    return this.prisma.categoria.findMany({
+  async listCategories() {
+    const categorias = await this.prisma.categoria.findMany({
       orderBy: { nome: 'asc' },
+      include: {
+        _count: { select: { produtos: true } },
+      },
     });
+
+    return categorias.map(({ _count, ...categoria }) => ({
+      ...categoria,
+      totalProdutos: _count.produtos,
+    }));
   }
 
   async getProductBySlug(slug: string) {
@@ -235,6 +243,7 @@ export class CatalogService {
           : {}),
         ...(dto.maisProcurado !== undefined ? { maisProcurado: dto.maisProcurado } : {}),
         ...(dto.lancamento !== undefined ? { lancamento: dto.lancamento } : {}),
+        ...(dto.finalidades !== undefined ? { finalidades: dto.finalidades } : {}),
       },
     });
   }
@@ -296,6 +305,7 @@ export class CatalogService {
         ...(dto.slug !== undefined ? { slug: dto.slug } : {}),
         ...(dto.maisProcurado !== undefined ? { maisProcurado: dto.maisProcurado } : {}),
         ...(dto.lancamento !== undefined ? { lancamento: dto.lancamento } : {}),
+        ...(dto.finalidades !== undefined ? { finalidades: dto.finalidades } : {}),
       },
     });
   }
@@ -566,6 +576,7 @@ export class CatalogService {
         ? { categoria: { slug: query.categoriaSlug } }
         : {}),
       ...(query.unidadeMedida ? { unidadeMedida: query.unidadeMedida } : {}),
+      ...(query.finalidade ? { finalidades: { has: query.finalidade } } : {}),
       ...(query.precoMin !== undefined || query.precoMax !== undefined
         ? {
             precoBase: {

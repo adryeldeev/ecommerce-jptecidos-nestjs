@@ -1,6 +1,8 @@
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsIn, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 import { UnidadeMedida } from '@prisma/client';
+import { FINALIDADES_PRODUTO } from '../constants/finalidade-produto.constant';
+import type { FinalidadeProduto } from '../constants/finalidade-produto.constant';
 
 export enum OrdenacaoProdutos {
   RECENTES = 'recentes',
@@ -38,6 +40,10 @@ export class ListProductsQueryDto {
   @IsOptional()
   @IsEnum(UnidadeMedida)
   unidadeMedida?: UnidadeMedida;
+
+  @IsOptional()
+  @IsIn(FINALIDADES_PRODUTO)
+  finalidade?: FinalidadeProduto;
 
   @IsOptional()
   @Type(() => Number)

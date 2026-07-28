@@ -1,13 +1,17 @@
 import { UnidadeMedida } from '@prisma/client';
 import {
+  IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
 } from 'class-validator';
+import { FINALIDADES_PRODUTO } from '../constants/finalidade-produto.constant';
+import type { FinalidadeProduto } from '../constants/finalidade-produto.constant';
 
 export class CreateProductDto {
   @IsString()
@@ -58,4 +62,9 @@ export class CreateProductDto {
   @IsOptional()
   @IsBoolean()
   lancamento?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsIn(FINALIDADES_PRODUTO, { each: true })
+  finalidades?: FinalidadeProduto[];
 }
