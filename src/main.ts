@@ -13,12 +13,24 @@ import {
   fromProcessEnv,
 } from './common/kafka/kafka.options';
 
+const ALLOWED_ORIGIN_PATTERNS = [
+  /^http:\/\/localhost:\d+$/,
+  // producao + previews de deploy do Vercel (ex: projeto-git-branch-usuario.vercel.app)
+  /^https:\/\/ecommerce-jptecidos-nextjs.*\.vercel\.app$/,
+];
+
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.use(helmet());
   app.enableCors({
-    origin: /^http:\/\/localhost:\d+$/,
+    origin: (origin, callback) => {
+      if (!origin || ALLOWED_ORIGIN_PATTERNS.some((pattern) => pattern.test(origin))) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'), false);
+      }
+    },
     credentials: true,
   });
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
