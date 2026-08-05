@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PaymentsService } from './payments.service';
+import { MercadoPagoService } from './mercadopago.service';
 import { PaymentsController } from './payments.controller';
 import { AuditModule } from '../audit/audit.module';
 import {
@@ -38,7 +39,7 @@ import {
     ]),
   ],
   controllers: [PaymentsController],
-  providers: [PaymentsService],
-  exports: [PaymentsService],
+  providers: [PaymentsService, MercadoPagoService],
+  exports: [PaymentsService, MercadoPagoService],
 })
 export class PaymentsModule {}

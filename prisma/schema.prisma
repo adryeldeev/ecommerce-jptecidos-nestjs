@@ -129,6 +129,7 @@ model Pedido {
   metodoPagamento String
   paymentProvider String?
   paymentMethodId String?
+  paymentId String? // id do pagamento retornado pelo Mercado Pago
   freteMetodo String
   freteTransportadora String
   fretePrazoDias Int

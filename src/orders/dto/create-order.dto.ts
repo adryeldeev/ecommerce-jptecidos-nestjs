@@ -3,6 +3,7 @@ import {
   IsArray,
   IsIn,
   IsNotEmpty,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -18,6 +19,23 @@ class CreateOrderItemDto {
 
   @Matches(/^\d+(\.\d{1,3})?$/)
   quantidade: string;
+}
+
+class PagamentoDto {
+  @IsOptional()
+  @IsString()
+  paymentType?: string;
+
+  @IsOptional()
+  @IsString()
+  selectedPaymentMethod?: string;
+
+  // Formato varia por metodo de pagamento (cartao/pix/boleto) -- e o retorno
+  // literal do onSubmit do Payment Brick, nao validamos campo a campo aqui
+  // pra nao acoplar no formato interno do SDK do Mercado Pago.
+  @IsObject()
+  @IsNotEmpty()
+  formData: Record<string, any>;
 }
 
 export class CreateOrderDto {
@@ -47,6 +65,11 @@ export class CreateOrderDto {
   @IsString()
   @IsIn(['mercadopago'])
   paymentProvider?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PagamentoDto)
+  pagamento?: PagamentoDto;
 
   @IsArray()
   @ArrayMinSize(1)
