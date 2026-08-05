@@ -39,6 +39,8 @@ Este documento descreve o mínimo necessário para colocar o sistema completo em
 - KAFKA_SSL_ENABLED
 - MERCADOPAGO_ACCESS_TOKEN
 - MERCADOPAGO_WEBHOOK_SECRET
+- FRENET_TOKEN
+- FRENET_SELLER_CEP
 
 ## 4) Subida da stack
 

@@ -77,56 +77,50 @@ export class OrdersService {
       });
     }
 
-    const result = await this.prisma.$transaction(async (tx) => {
-      const { itensCarrinho, subtotal } = await this.reservarEstoqueEPrecificar(
-        tx,
-        dto.itens,
-      );
+    const { itensCarrinho, subtotal } = await this.prisma.$transaction((tx) =>
+      this.reservarEstoqueEPrecificar(tx, dto.itens),
+    );
 
-      const shippingSelected = this.shippingService.choose({
-        cep: endereco.cep,
-        subtotal: subtotal.toFixed(2),
-        metodo: dto.freteMetodo as 'economico' | 'express' | undefined,
-        estado: endereco.estado,
-      });
+    const shippingSelected = await this.shippingService.choose(
+      endereco.cep,
+      dto.itens,
+      dto.freteMetodo as 'economico' | 'express' | undefined,
+    );
 
-      const frete = new Decimal(shippingSelected.valor);
-      const total = subtotal.plus(frete).toDecimalPlaces(2);
+    const frete = new Decimal(shippingSelected.valor);
+    const total = subtotal.plus(frete).toDecimalPlaces(2);
 
-      const pedido = await tx.pedido.create({
-        data: {
-          usuarioId,
-          enderecoId: endereco.id,
-          status: StatusPedido.PROCESSANDO,
-          metodoPagamento: metodoPagamentoNormalizado,
-          paymentProvider,
-          paymentMethodId: dto.paymentMethodId,
-          freteMetodo: shippingSelected.metodo,
-          freteTransportadora: shippingSelected.transportadora,
-          fretePrazoDias: shippingSelected.prazoDias,
-          cepEntrega: endereco.cep,
-          ruaEntrega: endereco.rua,
-          numeroEntrega: endereco.numero,
-          complementoEntrega: endereco.complemento,
-          bairroEntrega: endereco.bairro,
-          cidadeEntrega: endereco.cidade,
-          estadoEntrega: endereco.estado,
-          frete: new Prisma.Decimal(frete.toFixed(2)),
-          valorTotal: new Prisma.Decimal(total.toFixed(2)),
-          itens: {
-            create: itensCarrinho.map((i) => ({
-              produtoVariacaoId: i.produtoVariacaoId,
-              quantidade: new Prisma.Decimal(i.quantidade.toFixed(3)),
-              precoUnitario: new Prisma.Decimal(i.precoUnitario.toFixed(2)),
-            })),
-          },
+    const result = await this.prisma.pedido.create({
+      data: {
+        usuarioId,
+        enderecoId: endereco.id,
+        status: StatusPedido.PROCESSANDO,
+        metodoPagamento: metodoPagamentoNormalizado,
+        paymentProvider,
+        paymentMethodId: dto.paymentMethodId,
+        freteMetodo: shippingSelected.metodo,
+        freteTransportadora: shippingSelected.transportadora,
+        fretePrazoDias: shippingSelected.prazoDias,
+        cepEntrega: endereco.cep,
+        ruaEntrega: endereco.rua,
+        numeroEntrega: endereco.numero,
+        complementoEntrega: endereco.complemento,
+        bairroEntrega: endereco.bairro,
+        cidadeEntrega: endereco.cidade,
+        estadoEntrega: endereco.estado,
+        frete: new Prisma.Decimal(frete.toFixed(2)),
+        valorTotal: new Prisma.Decimal(total.toFixed(2)),
+        itens: {
+          create: itensCarrinho.map((i) => ({
+            produtoVariacaoId: i.produtoVariacaoId,
+            quantidade: new Prisma.Decimal(i.quantidade.toFixed(3)),
+            precoUnitario: new Prisma.Decimal(i.precoUnitario.toFixed(2)),
+          })),
         },
-        include: {
-          itens: true,
-        },
-      });
-
-      return pedido;
+      },
+      include: {
+        itens: true,
+      },
     });
 
     await this.paymentsService.solicitarPagamento({
@@ -167,12 +161,11 @@ export class OrdersService {
       this.reservarEstoqueEPrecificar(tx, dto.itens),
     );
 
-    const shippingSelected = this.shippingService.choose({
-      cep: endereco.cep,
-      subtotal: subtotal.toFixed(2),
-      metodo: dto.freteMetodo as 'economico' | 'express' | undefined,
-      estado: endereco.estado,
-    });
+    const shippingSelected = await this.shippingService.choose(
+      endereco.cep,
+      dto.itens,
+      dto.freteMetodo as 'economico' | 'express' | undefined,
+    );
 
     const frete = new Decimal(shippingSelected.valor);
     const total = subtotal.plus(frete).toDecimalPlaces(2);

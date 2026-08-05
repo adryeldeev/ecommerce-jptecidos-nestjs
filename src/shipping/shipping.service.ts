@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { UnidadeMedida } from '@prisma/client';
 import Decimal from 'decimal.js';
-import { QuoteShippingDto } from './dto/quote-shipping.dto';
+import { PrismaService } from '../common/prisma/prisma.service';
+import { FrenetService, FrenetShippingItem } from './frenet.service';
 
 export type ShippingQuote = {
   metodo: 'economico' | 'express';
@@ -9,83 +11,168 @@ export type ShippingQuote = {
   valor: string;
 };
 
+export type ShippingItemInput = {
+  produtoVariacaoId: string;
+  quantidade: string;
+};
+
+// Estimativa de dimensao de pacote: ainda nao existe medida real de
+// embalagem por produto, entao o "comprimento" do rolo despachado escala
+// com a metragem/peso do item (rolo maior ocupa mais espaco fisico),
+// dentro de um minimo/maximo razoavel aceito pelas transportadoras.
+// Ajustar essas constantes quando houver medida real de embalagem.
+const DIMENSAO_MIN_CM = 20;
+const DIMENSAO_MAX_CM = 100;
+const DIMENSAO_BASE_CM = 20;
+const DIMENSAO_CM_POR_METRO = 0.5;
+const DIMENSAO_CM_POR_KG = 3;
+const ALTURA_LARGURA_PADRAO_CM = 15;
+const PESO_MINIMO_KG = 0.1;
+// Fallback so usado quando o produto vendido por METRO ainda nao tem
+// gramatura/largura cadastradas (dado opcional, pode faltar em produtos antigos).
+const PESO_PADRAO_KG_POR_METRO_SEM_GRAMATURA = 0.3;
+const PESO_PADRAO_KG_POR_UNIDADE = 0.5;
+
 @Injectable()
 export class ShippingService {
-  quote(dto: QuoteShippingDto): ShippingQuote[] {
-    const subtotal = new Decimal(dto.subtotal);
-    const regionMultiplier = this.getRegionMultiplier(dto.cep, dto.estado);
-    const economicBase = new Decimal(14.9).plus(regionMultiplier);
-    const expressBase = new Decimal(29.9).plus(regionMultiplier.mul(1.5));
-    const subtotalFactor = subtotal.div(1000);
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly frenetService: FrenetService,
+  ) {}
+
+  async quote(cep: string, itens: ShippingItemInput[]): Promise<ShippingQuote[]> {
+    const { frenetItens, subtotal } = await this.montarItensFrenet(itens);
+
+    const cotacoes = await this.frenetService.cotar({
+      recipientCep: cep,
+      invoiceValue: subtotal.toFixed(2),
+      itens: frenetItens,
+    });
+
+    if (cotacoes.length === 0) {
+      throw new BadRequestException(
+        'Nao foi possivel calcular o frete para o CEP informado.',
+      );
+    }
+
+    const maisBarata = cotacoes.reduce((a, b) => (b.price < a.price ? b : a));
+    const maisRapida = cotacoes.reduce((a, b) => (b.deliveryDays < a.deliveryDays ? b : a));
 
     return [
       {
         metodo: 'economico',
-        transportadora: 'JP Tecidos Logistica',
-        prazoDias: this.getBaseDays(dto.cep, dto.estado, 'economico'),
-        valor: economicBase.plus(subtotalFactor).toFixed(2),
+        transportadora: `${maisBarata.carrier} - ${maisBarata.serviceDescription}`,
+        prazoDias: maisBarata.deliveryDays,
+        valor: maisBarata.price.toFixed(2),
       },
       {
         metodo: 'express',
-        transportadora: 'JP Tecidos Express',
-        prazoDias: this.getBaseDays(dto.cep, dto.estado, 'express'),
-        valor: expressBase.plus(subtotalFactor.mul(1.5)).toFixed(2),
+        transportadora: `${maisRapida.carrier} - ${maisRapida.serviceDescription}`,
+        prazoDias: maisRapida.deliveryDays,
+        valor: maisRapida.price.toFixed(2),
       },
     ];
   }
 
-  choose(dto: QuoteShippingDto) {
-    const options = this.quote(dto);
-    const selected = options.find((option) => option.metodo === (dto.metodo ?? 'economico')) ?? options[0];
-    return selected;
+  async choose(
+    cep: string,
+    itens: ShippingItemInput[],
+    metodo?: 'economico' | 'express',
+  ): Promise<ShippingQuote> {
+    const options = await this.quote(cep, itens);
+    return options.find((option) => option.metodo === (metodo ?? 'economico')) ?? options[0];
   }
 
-  private getRegionMultiplier(cep: string, estado?: string) {
-    const prefix = Number(cep.replace(/\D/g, '').charAt(0) || '0');
+  private async montarItensFrenet(
+    itens: ShippingItemInput[],
+  ): Promise<{ frenetItens: FrenetShippingItem[]; subtotal: Decimal }> {
+    const frenetItens: FrenetShippingItem[] = [];
+    let subtotal = new Decimal(0);
 
-    const stateMap: Record<string, number> = {
-      SP: 0,
-      RJ: 1,
-      MG: 1,
-      ES: 1,
-      PR: 1,
-      SC: 1,
-      RS: 2,
-      BA: 2,
-      PE: 2,
-      CE: 2,
-      PA: 3,
-      AM: 4,
-      AC: 5,
-      RO: 4,
-      RR: 5,
-      AP: 5,
-      TO: 4,
-      MA: 3,
-      PI: 3,
-      PB: 3,
-      RN: 3,
-      AL: 3,
-      SE: 3,
-      GO: 2,
-      DF: 2,
-      MT: 3,
-      MS: 2,
-    };
+    for (const item of itens) {
+      const quantidade = new Decimal(item.quantidade);
 
-    const stateValue = estado ? stateMap[estado.toUpperCase()] ?? 2 : 2;
-    return new Decimal(prefix).div(3).plus(stateValue);
-  }
+      const variacao = await this.prisma.produtoVariacao.findUnique({
+        where: { id: item.produtoVariacaoId },
+        select: {
+          preco: true,
+          produto: {
+            select: {
+              precoBase: true,
+              gramatura: true,
+              largura: true,
+              unidadeMedida: true,
+            },
+          },
+        },
+      });
 
-  private getBaseDays(cep: string, estado: string | undefined, metodo: 'economico' | 'express') {
-    const state = estado?.toUpperCase();
-    const local = state === 'SP' || state === 'RJ' || state === 'MG';
-    const cepDigit = Number(cep.replace(/\D/g, '').charAt(0) || '0');
+      if (!variacao) {
+        throw new BadRequestException(
+          `Variacao ${item.produtoVariacaoId} nao encontrada.`,
+        );
+      }
 
-    if (metodo === 'express') {
-      return local ? 2 + (cepDigit % 2) : 3 + (cepDigit % 3);
+      const precoUnitario = variacao.preco
+        ? new Decimal(variacao.preco.toString())
+        : new Decimal(variacao.produto.precoBase.toString());
+      subtotal = subtotal.plus(precoUnitario.mul(quantidade));
+
+      const { pesoKg, comprimentoCm } = this.calcularPesoEDimensao(
+        variacao.produto.unidadeMedida,
+        quantidade,
+        variacao.produto.gramatura ? new Decimal(variacao.produto.gramatura.toString()) : null,
+        variacao.produto.largura ? new Decimal(variacao.produto.largura.toString()) : null,
+      );
+
+      frenetItens.push({
+        weightKg: Math.max(PESO_MINIMO_KG, pesoKg),
+        lengthCm: comprimentoCm,
+        heightCm: ALTURA_LARGURA_PADRAO_CM,
+        widthCm: ALTURA_LARGURA_PADRAO_CM,
+        quantity: 1,
+      });
     }
 
-    return local ? 4 + (cepDigit % 3) : 6 + (cepDigit % 5);
+    return { frenetItens, subtotal };
+  }
+
+  private calcularPesoEDimensao(
+    unidadeMedida: UnidadeMedida,
+    quantidade: Decimal,
+    gramatura: Decimal | null,
+    largura: Decimal | null,
+  ): { pesoKg: number; comprimentoCm: number } {
+    if (unidadeMedida === UnidadeMedida.KG) {
+      const pesoKg = quantidade.toNumber();
+      return {
+        pesoKg,
+        comprimentoCm: this.clampDimensao(DIMENSAO_BASE_CM + pesoKg * DIMENSAO_CM_POR_KG),
+      };
+    }
+
+    if (unidadeMedida === UnidadeMedida.METRO) {
+      const pesoKg =
+        gramatura && largura
+          ? quantidade.mul(largura).mul(gramatura).div(1000).toNumber()
+          : quantidade.mul(PESO_PADRAO_KG_POR_METRO_SEM_GRAMATURA).toNumber();
+
+      return {
+        pesoKg,
+        comprimentoCm: this.clampDimensao(
+          DIMENSAO_BASE_CM + quantidade.toNumber() * DIMENSAO_CM_POR_METRO,
+        ),
+      };
+    }
+
+    // UNIDADE: sem formula de peso real disponivel, usa estimativa fixa por peca.
+    return {
+      pesoKg: quantidade.mul(PESO_PADRAO_KG_POR_UNIDADE).toNumber(),
+      comprimentoCm: DIMENSAO_BASE_CM,
+    };
+  }
+
+  private clampDimensao(valor: number): number {
+    return Math.min(DIMENSAO_MAX_CM, Math.max(DIMENSAO_MIN_CM, valor));
   }
 }

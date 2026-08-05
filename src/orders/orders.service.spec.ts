@@ -9,9 +9,6 @@ describe('OrdersService', () => {
     produtoVariacao: {
       update: jest.fn(),
     },
-    pedido: {
-      create: jest.fn(),
-    },
   };
 
   const prisma = {
@@ -119,7 +116,7 @@ describe('OrdersService', () => {
   });
 
   it('sem campo pagamento mantem o fluxo simulado existente (nao chama Mercado Pago)', async () => {
-    tx.pedido.create.mockResolvedValue({
+    prisma.pedido.create.mockResolvedValue({
       id: 'pedido-1',
       valorTotal: new Decimal('115.00'),
     });
@@ -127,7 +124,11 @@ describe('OrdersService', () => {
     const result = await service.createOrder('user-1', dtoBase as any);
 
     expect(mercadoPagoService.criarPagamento).not.toHaveBeenCalled();
-    expect(prisma.pedido.create).not.toHaveBeenCalled();
+    expect(shippingService.choose).toHaveBeenCalledWith(
+      endereco.cep,
+      dtoBase.itens,
+      undefined,
+    );
     expect(paymentsService.solicitarPagamento).toHaveBeenCalledWith(
       expect.objectContaining({ pedidoId: 'pedido-1' }),
     );

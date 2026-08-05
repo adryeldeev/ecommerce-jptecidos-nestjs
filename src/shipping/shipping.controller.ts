@@ -7,10 +7,11 @@ export class ShippingController {
   constructor(private readonly shippingService: ShippingService) {}
 
   @Post('cotacao')
-  quote(@Body() dto: QuoteShippingDto) {
-    return {
-      options: this.shippingService.quote(dto),
-      selected: this.shippingService.choose(dto),
-    };
+  async quote(@Body() dto: QuoteShippingDto) {
+    const options = await this.shippingService.quote(dto.cep, dto.itens);
+    const selected =
+      options.find((option) => option.metodo === (dto.metodo ?? 'economico')) ?? options[0];
+
+    return { options, selected };
   }
 }
