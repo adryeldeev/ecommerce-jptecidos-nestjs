@@ -147,6 +147,7 @@ model Pedido {
   criadoEm   DateTime     @default(now())
 
   @@index([usuarioId, requestFingerprint, criadoEm])
+  @@index([paymentId])
 }
 
 model PasswordResetToken {
