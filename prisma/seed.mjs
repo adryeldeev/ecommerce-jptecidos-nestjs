@@ -15,13 +15,13 @@ async function main() {
   const adminEmail = (process.env.ADMIN_EMAIL ?? 'admin@jptecidos.com')
     .toLowerCase()
     .trim();
-  const adminPassword = process.env.ADMIN_PASSWORD ?? 'Admin@123456';
+  const adminPassword = process.env.ADMIN_PASSWORD;
   const adminName = (process.env.ADMIN_NAME ?? 'Administrador')
     .trim();
   const rounds = parseRounds(process.env.BCRYPT_ROUNDS);
 
-  if (adminPassword.length < 6) {
-    throw new Error('ADMIN_PASSWORD precisa ter no minimo 6 caracteres.');
+  if (!adminPassword || adminPassword.length < 6) {
+    throw new Error('ADMIN_PASSWORD precisa estar definida e ter no minimo 6 caracteres.');
   }
 
   const senhaHash = await bcrypt.hash(adminPassword, rounds);

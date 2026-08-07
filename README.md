@@ -75,7 +75,7 @@ npm run prisma:seed
 Variáveis usadas pelo seed:
 
 - `ADMIN_EMAIL` (default: `admin@jptecidos.com`)
-- `ADMIN_PASSWORD` (default: `Admin@123456`)
+- `ADMIN_PASSWORD` (obrigatória, sem valor padrão — minimo 6 caracteres)
 - `ADMIN_NAME` (default: `Administrador`)
 
 O seed é idempotente: se o email já existir, ele atualiza nome, senha e define `ehAdmin=true`.
