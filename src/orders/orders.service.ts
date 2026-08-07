@@ -12,6 +12,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { MercadoPagoService } from '../payments/mercadopago.service';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { ShippingService } from '../shipping/shipping.service';
+import { OrderNotificationService } from './order-notification.service';
 
 type ItemCarrinho = {
   produtoVariacaoId: string;
@@ -31,9 +32,10 @@ export class OrdersService {
     private readonly paymentsService: PaymentsService,
     private readonly mercadoPagoService: MercadoPagoService,
     private readonly shippingService: ShippingService,
+    private readonly orderNotificationService: OrderNotificationService,
   ) {}
 
-  async createOrder(usuarioId: string, dto: CreateOrderDto) {
+  async createOrder(usuarioId: string, dto: CreateOrderDto, usuarioEmail?: string) {
     const metodoPagamentoNormalizado = dto.metodoPagamento.toLowerCase().trim();
     const usaCartao = metodoPagamentoNormalizado === 'cartao';
     const paymentProvider = dto.pagamento
@@ -96,6 +98,7 @@ export class OrdersService {
         metodoPagamentoNormalizado,
         paymentProvider,
         fingerprint,
+        usuarioEmail,
       });
     }
 
@@ -155,6 +158,15 @@ export class OrdersService {
       paymentProvider,
     });
 
+    if (usuarioEmail) {
+      void this.orderNotificationService.notificarPedidoNovo({
+        id: result.id,
+        valorTotal: result.valorTotal.toString(),
+        metodoPagamento: metodoPagamentoNormalizado,
+        clienteEmail: usuarioEmail,
+      });
+    }
+
     return result;
   }
 
@@ -182,6 +194,7 @@ export class OrdersService {
       metodoPagamentoNormalizado: string;
       paymentProvider?: string;
       fingerprint: string;
+      usuarioEmail?: string;
     },
   ) {
     const { itensCarrinho, subtotal } = await this.prisma.$transaction((tx) =>
@@ -258,6 +271,15 @@ export class OrdersService {
         itens: true,
       },
     });
+
+    if (contexto.usuarioEmail) {
+      void this.orderNotificationService.notificarPedidoNovo({
+        id: pedido.id,
+        valorTotal: pedido.valorTotal.toString(),
+        metodoPagamento: contexto.metodoPagamentoNormalizado,
+        clienteEmail: contexto.usuarioEmail,
+      });
+    }
 
     return {
       ...pedido,

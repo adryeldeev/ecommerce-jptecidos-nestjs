@@ -70,10 +70,15 @@ export class AdminService {
       `,
     ]);
 
+    const byStatus = this.mapOrdersByStatus(ordersByStatus);
+
     return {
       orders: {
         total: totalOrders,
-        byStatus: this.mapOrdersByStatus(ordersByStatus),
+        byStatus,
+        // pedidos que ainda precisam de atencao (nao finalizados nem cancelados) --
+        // serve de "badge" de notificacao no proprio painel.
+        aguardandoAtencao: byStatus.PENDENTE + byStatus.PROCESSANDO,
       },
       revenue: {
         paidTotal: totalRevenue._sum.valorTotal?.toString() ?? '0',

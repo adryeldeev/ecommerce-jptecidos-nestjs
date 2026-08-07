@@ -19,7 +19,7 @@ export class OrdersController {
 
   @Post()
   async createOrder(@CurrentUser() user: JwtPayload, @Body() dto: CreateOrderDto) {
-    const pedido = await this.ordersService.createOrder(user.sub, dto);
+    const pedido = await this.ordersService.createOrder(user.sub, dto, user.email);
 
     await this.auditService.record({
       atorId: user.sub,

@@ -41,6 +41,9 @@ Este documento descreve o mínimo necessário para colocar o sistema completo em
 - MERCADOPAGO_WEBHOOK_SECRET
 - FRENET_TOKEN
 - FRENET_SELLER_CEP
+- RESEND_API_KEY (opcional -- sem ela, notificacao de pedido novo por e-mail fica desativada)
+- RESEND_FROM_EMAIL
+- NOTIFICATION_EMAIL (opcional -- cai em ADMIN_EMAIL se nao definida)
 
 ## 4) Subida da stack
 

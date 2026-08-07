@@ -71,6 +71,7 @@ describe('AdminService', () => {
         ENVIADO: 0,
         ENTREGUE: 0,
       },
+      aguardandoAtencao: 2,
     });
     expect(result.revenue.paidTotal).toBe('1234.56');
     expect(result.revenue.last30Days).toHaveLength(30);

@@ -34,8 +34,17 @@ describe('OrdersService', () => {
   const shippingService = {
     choose: jest.fn(),
   } as any;
+  const orderNotificationService = {
+    notificarPedidoNovo: jest.fn(),
+  } as any;
 
-  const service = new OrdersService(prisma, paymentsService, mercadoPagoService, shippingService);
+  const service = new OrdersService(
+    prisma,
+    paymentsService,
+    mercadoPagoService,
+    shippingService,
+    orderNotificationService,
+  );
 
   const endereco = {
     id: 'endereco-1',
@@ -228,7 +237,7 @@ describe('OrdersService', () => {
       status: 'approved',
       statusDetail: 'accredited',
     });
-    prisma.pedido.create.mockResolvedValue({ id: 'pedido-x' });
+    prisma.pedido.create.mockResolvedValue({ id: 'pedido-x', valorTotal: new Decimal('115.00') });
 
     await service.createOrder('user-1', {
       ...dtoBase,
@@ -244,5 +253,51 @@ describe('OrdersService', () => {
     expect(mercadoPagoService.criarPagamento).toHaveBeenCalledWith(
       expect.objectContaining({ idempotencyKey: 'chave-do-frontend-123' }),
     );
+  });
+
+  describe('notificacao de pedido novo', () => {
+    it('notifica quando um pedido de verdade e criado (fluxo simulado)', async () => {
+      prisma.pedido.create.mockResolvedValue({ id: 'pedido-1', valorTotal: new Decimal('115.00') });
+
+      await service.createOrder('user-1', dtoBase as any, 'cliente@exemplo.com');
+
+      expect(orderNotificationService.notificarPedidoNovo).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'pedido-1',
+          valorTotal: '115',
+          clienteEmail: 'cliente@exemplo.com',
+        }),
+      );
+    });
+
+    it('notifica quando um pedido de verdade e criado (fluxo Mercado Pago)', async () => {
+      mercadoPagoService.criarPagamento.mockResolvedValue({
+        id: 'mp-123',
+        status: 'approved',
+        statusDetail: 'accredited',
+      });
+      prisma.pedido.create.mockResolvedValue({
+        id: 'pedido-novo',
+        valorTotal: new Decimal('115.00'),
+      });
+
+      await service.createOrder(
+        'user-1',
+        { ...dtoBase, pagamento: pagamentoDto } as any,
+        'cliente@exemplo.com',
+      );
+
+      expect(orderNotificationService.notificarPedidoNovo).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'pedido-novo', clienteEmail: 'cliente@exemplo.com' }),
+      );
+    });
+
+    it('NAO notifica de novo quando o pedido e um replay de dedup (mesmo carrinho)', async () => {
+      prisma.pedido.findFirst.mockResolvedValue({ id: 'pedido-original' });
+
+      await service.createOrder('user-1', dtoBase as any, 'cliente@exemplo.com');
+
+      expect(orderNotificationService.notificarPedidoNovo).not.toHaveBeenCalled();
+    });
   });
 });
