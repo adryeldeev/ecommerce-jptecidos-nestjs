@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, StatusPedido, UnidadeMedida } from '@prisma/client';
 import Decimal from 'decimal.js';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { PaymentsService } from '../payments/payments.service';
@@ -18,6 +18,11 @@ type ItemCarrinho = {
   quantidade: Decimal;
   precoUnitario: Decimal;
 };
+
+// Janela de tempo em que um pedido com o mesmo fingerprint (mesmo usuario +
+// mesmo carrinho) e considerado uma repeticao da mesma tentativa de compra
+// (duplo clique, retry de rede) em vez de uma compra nova de proposito.
+const JANELA_DEDUP_MS = 30_000;
 
 @Injectable()
 export class OrdersService {
@@ -49,6 +54,22 @@ export class OrdersService {
       );
     }
 
+    const fingerprint = dto.idempotencyKey ?? this.computeFingerprint(usuarioId, dto);
+
+    const pedidoDuplicado = await this.prisma.pedido.findFirst({
+      where: {
+        usuarioId,
+        requestFingerprint: fingerprint,
+        criadoEm: { gte: new Date(Date.now() - JANELA_DEDUP_MS) },
+      },
+      include: { itens: true },
+      orderBy: { criadoEm: 'desc' },
+    });
+
+    if (pedidoDuplicado) {
+      return pedidoDuplicado;
+    }
+
     const endereco = await this.prisma.endereco.findFirst({
       where: {
         id: dto.enderecoId,
@@ -74,6 +95,7 @@ export class OrdersService {
       return this.createOrderComPagamentoReal(usuarioId, dto, endereco, {
         metodoPagamentoNormalizado,
         paymentProvider,
+        fingerprint,
       });
     }
 
@@ -98,6 +120,7 @@ export class OrdersService {
         metodoPagamento: metodoPagamentoNormalizado,
         paymentProvider,
         paymentMethodId: dto.paymentMethodId,
+        requestFingerprint: fingerprint,
         freteMetodo: shippingSelected.metodo,
         freteTransportadora: shippingSelected.transportadora,
         fretePrazoDias: shippingSelected.prazoDias,
@@ -155,7 +178,11 @@ export class OrdersService {
       cidade: string;
       estado: string;
     },
-    contexto: { metodoPagamentoNormalizado: string; paymentProvider?: string },
+    contexto: {
+      metodoPagamentoNormalizado: string;
+      paymentProvider?: string;
+      fingerprint: string;
+    },
   ) {
     const { itensCarrinho, subtotal } = await this.prisma.$transaction((tx) =>
       this.reservarEstoqueEPrecificar(tx, dto.itens),
@@ -177,6 +204,7 @@ export class OrdersService {
         valorTotal: total.toFixed(2),
         externalReference: pedidoId,
         formData: dto.pagamento!.formData,
+        idempotencyKey: contexto.fingerprint,
       });
     } catch (error) {
       await this.restaurarEstoque(itensCarrinho);
@@ -205,6 +233,7 @@ export class OrdersService {
         paymentProvider: contexto.paymentProvider,
         paymentMethodId: dto.paymentMethodId,
         paymentId: pagamento.id,
+        requestFingerprint: contexto.fingerprint,
         freteMetodo: shippingSelected.metodo,
         freteTransportadora: shippingSelected.transportadora,
         fretePrazoDias: shippingSelected.prazoDias,
@@ -326,6 +355,23 @@ export class OrdersService {
     }
 
     return { itensCarrinho, subtotal };
+  }
+
+  private computeFingerprint(usuarioId: string, dto: CreateOrderDto): string {
+    const itensNormalizados = [...dto.itens]
+      .map((item) => `${item.produtoVariacaoId}:${item.quantidade}`)
+      .sort()
+      .join(',');
+
+    const base = [
+      usuarioId,
+      dto.enderecoId,
+      dto.metodoPagamento.toLowerCase().trim(),
+      dto.freteMetodo ?? '',
+      itensNormalizados,
+    ].join('|');
+
+    return createHash('sha256').update(base).digest('hex');
   }
 
   private async restaurarEstoque(itensCarrinho: ItemCarrinho[]) {

@@ -1,12 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
-import { randomUUID } from 'crypto';
 
 export type CriarPagamentoInput = {
   valorTotal: string;
   externalReference: string;
   formData: Record<string, any>;
+  // Deve ser estavel por tentativa logica de checkout (nao gerado a esmo a
+  // cada chamada), senao o Mercado Pago nao consegue deduplicar requisicoes
+  // repetidas (ex: duplo clique) e processa cada uma como cobranca separada.
+  idempotencyKey: string;
 };
 
 export type CriarPagamentoResultado = {
@@ -45,7 +48,7 @@ export class MercadoPagoService {
             formData?.issuer_id !== undefined ? Number(formData.issuer_id) : undefined,
           payer: formData?.payer,
         },
-        requestOptions: { idempotencyKey: randomUUID() },
+        requestOptions: { idempotencyKey: input.idempotencyKey },
       });
 
       const transactionData = response.point_of_interaction?.transaction_data;

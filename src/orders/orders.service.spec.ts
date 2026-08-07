@@ -19,6 +19,7 @@ describe('OrdersService', () => {
       update: jest.fn(),
     },
     pedido: {
+      findFirst: jest.fn(),
       create: jest.fn(),
     },
     $transaction: jest.fn((cb) => cb(tx)),
@@ -75,6 +76,7 @@ describe('OrdersService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     prisma.endereco.findFirst.mockResolvedValue(endereco);
+    prisma.pedido.findFirst.mockResolvedValue(null);
     tx.$queryRaw.mockResolvedValue([snapshotVariacao]);
     shippingService.choose.mockReturnValue({
       metodo: 'economico',
@@ -204,6 +206,43 @@ describe('OrdersService', () => {
         where: { id: 'variacao-1' },
         data: { estoque: { increment: expect.anything() } },
       }),
+    );
+  });
+
+  it('retorna o pedido ja existente em vez de duplicar, se o mesmo carrinho for reenviado na janela de dedup', async () => {
+    const pedidoExistente = { id: 'pedido-original', valorTotal: new Decimal('115.00') };
+    prisma.pedido.findFirst.mockResolvedValue(pedidoExistente);
+
+    const result = await service.createOrder('user-1', dtoBase as any);
+
+    expect(result).toBe(pedidoExistente);
+    expect(prisma.endereco.findFirst).not.toHaveBeenCalled();
+    expect(prisma.pedido.create).not.toHaveBeenCalled();
+    expect(mercadoPagoService.criarPagamento).not.toHaveBeenCalled();
+    expect(paymentsService.solicitarPagamento).not.toHaveBeenCalled();
+  });
+
+  it('usa o idempotencyKey do client quando informado, e repassa pro Mercado Pago', async () => {
+    mercadoPagoService.criarPagamento.mockResolvedValue({
+      id: 'mp-999',
+      status: 'approved',
+      statusDetail: 'accredited',
+    });
+    prisma.pedido.create.mockResolvedValue({ id: 'pedido-x' });
+
+    await service.createOrder('user-1', {
+      ...dtoBase,
+      pagamento: pagamentoDto,
+      idempotencyKey: 'chave-do-frontend-123',
+    } as any);
+
+    expect(prisma.pedido.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ requestFingerprint: 'chave-do-frontend-123' }),
+      }),
+    );
+    expect(mercadoPagoService.criarPagamento).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotencyKey: 'chave-do-frontend-123' }),
     );
   });
 });

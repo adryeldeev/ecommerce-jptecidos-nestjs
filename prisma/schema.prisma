@@ -130,6 +130,7 @@ model Pedido {
   paymentProvider String?
   paymentMethodId String?
   paymentId String? // id do pagamento retornado pelo Mercado Pago
+  requestFingerprint String? // deduplica pedidos duplicados (duplo clique/retry) na mesma janela de tempo
   freteMetodo String
   freteTransportadora String
   fretePrazoDias Int
@@ -144,6 +145,8 @@ model Pedido {
   frete      Decimal      @db.Decimal(10, 2)
   itens      ItemPedido[]
   criadoEm   DateTime     @default(now())
+
+  @@index([usuarioId, requestFingerprint, criadoEm])
 }
 
 model PasswordResetToken {

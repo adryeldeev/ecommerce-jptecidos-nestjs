@@ -71,6 +71,17 @@ export class CreateOrderDto {
   @Type(() => PagamentoDto)
   pagamento?: PagamentoDto;
 
+  // Opcional: se o frontend gerar uma chave unica por tentativa de checkout
+  // (ex: uuid criado quando a tela de pagamento abre) e reenviar a mesma
+  // chave num retry/duplo clique, o backend devolve o pedido ja criado em
+  // vez de processar o pagamento de novo. Sem isso, o backend ainda protege
+  // com um fingerprint calculado a partir do carrinho, mas a chave do client
+  // e mais precisa.
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  idempotencyKey?: string;
+
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
