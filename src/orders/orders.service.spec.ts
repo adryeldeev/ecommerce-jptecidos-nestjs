@@ -17,6 +17,7 @@ describe('OrdersService', () => {
     },
     produtoVariacao: {
       update: jest.fn(),
+      findMany: jest.fn(),
     },
     pedido: {
       findFirst: jest.fn(),
@@ -36,7 +37,10 @@ describe('OrdersService', () => {
   } as any;
   const orderNotificationService = {
     notificarPedidoNovo: jest.fn(),
+    enviarConfirmacaoParaCliente: jest.fn(),
   } as any;
+
+  const flushMicrotasks = () => new Promise((resolve) => setImmediate(resolve));
 
   const service = new OrdersService(
     prisma,
@@ -93,6 +97,9 @@ describe('OrdersService', () => {
       prazoDias: 7,
       valor: '15.00',
     });
+    prisma.produtoVariacao.findMany.mockResolvedValue([
+      { id: 'variacao-1', cor: 'Azul', produto: { titulo: 'Tecido Jeans' } },
+    ]);
   });
 
   it('exige paymentMethodId para pagamento com cartao', async () => {
@@ -298,6 +305,81 @@ describe('OrdersService', () => {
       await service.createOrder('user-1', dtoBase as any, 'cliente@exemplo.com');
 
       expect(orderNotificationService.notificarPedidoNovo).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('confirmacao de pedido para o cliente', () => {
+    it('envia a confirmacao com itens, frete e endereco quando o pedido e criado (fluxo simulado)', async () => {
+      prisma.pedido.create.mockResolvedValue({ id: 'pedido-1', valorTotal: new Decimal('115.00') });
+
+      await service.createOrder('user-1', dtoBase as any, 'cliente@exemplo.com');
+      await flushMicrotasks();
+
+      expect(prisma.produtoVariacao.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: { in: ['variacao-1'] } } }),
+      );
+      expect(orderNotificationService.enviarConfirmacaoParaCliente).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'pedido-1',
+          clienteEmail: 'cliente@exemplo.com',
+          itens: [
+            {
+              titulo: 'Tecido Jeans',
+              cor: 'Azul',
+              quantidade: '2',
+              precoUnitario: '50.00',
+            },
+          ],
+          subtotal: '100.00',
+          frete: '15.00',
+          freteTransportadora: 'Correios',
+          fretePrazoDias: 7,
+          valorTotal: '115.00',
+          metodoPagamento: 'pix',
+          enderecoEntrega: expect.objectContaining({ rua: 'Av. Paulista', cep: '01310-000' }),
+        }),
+      );
+    });
+
+    it('envia a confirmacao ao cliente no fluxo com Mercado Pago', async () => {
+      mercadoPagoService.criarPagamento.mockResolvedValue({
+        id: 'mp-123',
+        status: 'approved',
+        statusDetail: 'accredited',
+      });
+      prisma.pedido.create.mockResolvedValue({
+        id: 'pedido-novo',
+        valorTotal: new Decimal('115.00'),
+      });
+
+      await service.createOrder(
+        'user-1',
+        { ...dtoBase, pagamento: pagamentoDto } as any,
+        'cliente@exemplo.com',
+      );
+      await flushMicrotasks();
+
+      expect(orderNotificationService.enviarConfirmacaoParaCliente).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'pedido-novo', clienteEmail: 'cliente@exemplo.com' }),
+      );
+    });
+
+    it('NAO envia confirmacao quando o pedido e um replay de dedup', async () => {
+      prisma.pedido.findFirst.mockResolvedValue({ id: 'pedido-original' });
+
+      await service.createOrder('user-1', dtoBase as any, 'cliente@exemplo.com');
+      await flushMicrotasks();
+
+      expect(orderNotificationService.enviarConfirmacaoParaCliente).not.toHaveBeenCalled();
+    });
+
+    it('NAO envia confirmacao quando nao ha e-mail do usuario disponivel', async () => {
+      prisma.pedido.create.mockResolvedValue({ id: 'pedido-1', valorTotal: new Decimal('115.00') });
+
+      await service.createOrder('user-1', dtoBase as any);
+      await flushMicrotasks();
+
+      expect(orderNotificationService.enviarConfirmacaoParaCliente).not.toHaveBeenCalled();
     });
   });
 });

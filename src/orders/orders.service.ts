@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, StatusPedido, UnidadeMedida } from '@prisma/client';
@@ -27,6 +28,8 @@ const JANELA_DEDUP_MS = 30_000;
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentsService: PaymentsService,
@@ -165,6 +168,18 @@ export class OrdersService {
         metodoPagamento: metodoPagamentoNormalizado,
         clienteEmail: usuarioEmail,
       });
+
+      void this.enviarConfirmacaoCliente({
+        pedidoId: result.id,
+        clienteEmail: usuarioEmail,
+        itensCarrinho,
+        subtotal,
+        frete,
+        valorTotal: total,
+        metodoPagamento: metodoPagamentoNormalizado,
+        shippingSelected,
+        endereco,
+      });
     }
 
     return result;
@@ -278,6 +293,18 @@ export class OrdersService {
         valorTotal: pedido.valorTotal.toString(),
         metodoPagamento: contexto.metodoPagamentoNormalizado,
         clienteEmail: contexto.usuarioEmail,
+      });
+
+      void this.enviarConfirmacaoCliente({
+        pedidoId: pedido.id,
+        clienteEmail: contexto.usuarioEmail,
+        itensCarrinho,
+        subtotal,
+        frete,
+        valorTotal: total,
+        metodoPagamento: contexto.metodoPagamentoNormalizado,
+        shippingSelected,
+        endereco,
       });
     }
 
@@ -404,6 +431,71 @@ export class OrdersService {
           estoque: { increment: new Prisma.Decimal(item.quantidade.toFixed(3)) },
         },
       });
+    }
+  }
+
+  /**
+   * Busca titulo/cor das variacoes (ausentes em ItemCarrinho) e dispara o
+   * e-mail de confirmacao ao cliente. Nunca lanca erro -- e chamada como
+   * fire-and-forget (void) apos o pedido ja ter sido criado com sucesso.
+   */
+  private async enviarConfirmacaoCliente(params: {
+    pedidoId: string;
+    clienteEmail: string;
+    itensCarrinho: ItemCarrinho[];
+    subtotal: Decimal;
+    frete: Decimal;
+    valorTotal: Decimal;
+    metodoPagamento: string;
+    shippingSelected: {
+      transportadora: string;
+      prazoDias: number;
+    };
+    endereco: {
+      rua: string;
+      numero: string;
+      complemento: string | null;
+      bairro: string;
+      cidade: string;
+      estado: string;
+      cep: string;
+    };
+  }): Promise<void> {
+    try {
+      const variacoes = await this.prisma.produtoVariacao.findMany({
+        where: {
+          id: { in: params.itensCarrinho.map((item) => item.produtoVariacaoId) },
+        },
+        select: { id: true, cor: true, produto: { select: { titulo: true } } },
+      });
+      const variacaoPorId = new Map(variacoes.map((v) => [v.id, v]));
+
+      const itens = params.itensCarrinho.map((item) => {
+        const variacao = variacaoPorId.get(item.produtoVariacaoId);
+        return {
+          titulo: variacao?.produto.titulo ?? 'Produto',
+          cor: variacao?.cor ?? '-',
+          quantidade: item.quantidade.toString(),
+          precoUnitario: item.precoUnitario.toFixed(2),
+        };
+      });
+
+      await this.orderNotificationService.enviarConfirmacaoParaCliente({
+        id: params.pedidoId,
+        clienteEmail: params.clienteEmail,
+        itens,
+        subtotal: params.subtotal.toFixed(2),
+        frete: params.frete.toFixed(2),
+        freteTransportadora: params.shippingSelected.transportadora,
+        fretePrazoDias: params.shippingSelected.prazoDias,
+        valorTotal: params.valorTotal.toFixed(2),
+        metodoPagamento: params.metodoPagamento,
+        enderecoEntrega: params.endereco,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Falha ao montar confirmacao de pedido para o cliente: ${(error as Error).message}`,
+      );
     }
   }
 
